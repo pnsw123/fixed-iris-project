@@ -78,7 +78,8 @@ class IrisSAMService:
         self,
         image: np.ndarray,
         use_bounding_box: bool = True,
-        iris_center: Optional[Tuple[float, float]] = None
+        iris_center: Optional[Tuple[float, float]] = None,
+        iris_radius: Optional[float] = None
     ) -> Tuple[np.ndarray, np.ndarray, float]:
         """
         Segment iris from eye crop image using Iris-SAM.
@@ -167,27 +168,23 @@ class IrisSAMService:
                         print(f"[IrisSAM] ⚠️  Mask appears inverted - fixing...")
                         mask = 255 - mask
 
-                    # Optimization 2: Minimal morphology + circle fitting for perfect circularity
-                    # Step 1: Very gentle close to fill tiny holes only
+                    # Refine SAM output: minimal morphology + circle fitting to SAM segmentation
                     kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close, iterations=1)
 
-                    # Step 2: Find contours and fit a perfect circle
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     if contours:
-                        # Get largest contour (should be the iris)
                         largest_contour = max(contours, key=cv2.contourArea)
-
-                        # Fit minimum enclosing circle for perfect circularity
                         (circle_x, circle_y), radius = cv2.minEnclosingCircle(largest_contour)
 
-                        # Create new mask with perfect circle
                         mask = np.zeros_like(mask)
                         cv2.circle(mask, (int(circle_x), int(circle_y)), int(radius), 255, -1)
 
-                        print(f"[IrisSAM] Fitted perfect circle: center=({circle_x:.1f}, {circle_y:.1f}), radius={radius:.1f}px")
+                        print(f"[IrisSAM] Fitted circle from SAM mask: center=({circle_x:.1f}, {circle_y:.1f}), radius={radius:.1f}px")
+                    else:
+                        print("[IrisSAM] ⚠️  No contours found after SAM; using raw SAM mask without circle fitting")
 
-                    # Step 3: Minimal smoothing on circle edge
+                    # Step 3: Minimal smoothing on circle edge for anti-aliasing
                     mask = cv2.GaussianBlur(mask, (3, 3), 0.3)
                     _, mask = cv2.threshold(mask, 200, 255, cv2.THRESH_BINARY)
 

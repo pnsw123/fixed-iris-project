@@ -33,9 +33,6 @@ class Settings(BaseSettings):
         "http://10.0.0.104:3000"
     ]
 
-    # Mask tuning
-    strict_iris_mask: bool = True
-
     # Logging
     log_level: str = "INFO"
 

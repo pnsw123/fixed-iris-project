@@ -88,10 +88,6 @@ class IrisPipelineService:
 
             result["metadata"]["iris_sam_time_ms"] = iris_sam_time_ms
             result["metadata"]["mask_quality_score"] = quality_score
-            # Add auxiliary telemetry if present
-            result["metadata"]["mask_quality_raw"] = getattr(self.iris_sam, "last_quality_raw", None)
-            result["metadata"]["mask_area_ratio"] = getattr(self.iris_sam, "last_mask_area_ratio", None)
-            result["metadata"]["mask_mode"] = getattr(self.iris_sam, "mask_mode", "default")
 
             # Optional: return mask
             if return_mask:

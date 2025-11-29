@@ -1,0 +1,22 @@
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.18
+pydantic==2.10.0
+pydantic-settings==2.6.1
+
+# Deep Learning
+torch>=2.6.0
+torchvision>=0.21.0
+numpy==1.26.4
+opencv-python==4.10.0.84
+Pillow==11.0.0
+
+# Segment Anything Model
+git+https://github.com/facebookresearch/segment-anything.git
+
+# ONNX Runtime for Real-ESRGAN
+onnxruntime>=1.16.0
+
+# Utilities
+python-dotenv==1.0.1

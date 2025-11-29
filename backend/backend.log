@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/yazeed/Desktop/AntiGravity_1-main/backend/app.py", line 24, in <module>
+    from services.iris_sam_service import IrisSAMService
+  File "/Users/yazeed/Desktop/AntiGravity_1-main/backend/services/iris_sam_service.py", line 3, in <module>
+    import torch
+ModuleNotFoundError: No module named 'torch'

@@ -25,7 +25,12 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: List[str] = [
         "http://localhost:3005",
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "https://localhost:3005",
+        "https://10.0.0.104:3005",
+        "https://10.0.0.104:3000",
+        "http://10.0.0.104:3005",
+        "http://10.0.0.104:3000"
     ]
 
     # Logging

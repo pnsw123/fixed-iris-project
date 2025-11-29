@@ -31,7 +31,8 @@ class IrisPipelineService:
         image: np.ndarray,
         return_mask: bool = False,
         return_intermediate: bool = False,
-        iris_center: Optional[Tuple[float, float]] = None
+        iris_center: Optional[Tuple[float, float]] = None,
+        iris_radius: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Full pipeline: Iris-SAM segmentation → Real-ESRGAN upscaling.
@@ -70,12 +71,16 @@ class IrisPipelineService:
             # ============================================================
             print("[Pipeline] Stage 1: Running Iris-SAM segmentation...")
             if iris_center:
-                print(f"[Pipeline] Using iris center prompt: ({iris_center[0]:.1f}, {iris_center[1]:.1f})")
+                if iris_radius:
+                    print(f"[Pipeline] Using iris center prompt: ({iris_center[0]:.1f}, {iris_center[1]:.1f}), radius={iris_radius:.1f}px")
+                else:
+                    print(f"[Pipeline] Using iris center prompt: ({iris_center[0]:.1f}, {iris_center[1]:.1f})")
             t0 = time.time()
 
             mask, clean_iris, quality_score = self.iris_sam.segment_iris(
                 image,
-                iris_center=iris_center
+                iris_center=iris_center,
+                iris_radius=iris_radius
             )
 
             iris_sam_time_ms = (time.time() - t0) * 1000

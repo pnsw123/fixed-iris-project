@@ -13,7 +13,7 @@ interface ReviewScreenProps {
 type ViewMode = 'single' | 'comparison';
 
 export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProps) {
-    const { imageData: irisCrop, irisCoordinates, cropSize } = captureData;
+    const { imageData: irisCrop, irisCoordinates, cropSize, irisRadius } = captureData;
     const [viewMode, setViewMode] = useState<ViewMode>('single');
     const [showOriginal, setShowOriginal] = useState(true);
     const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
@@ -52,6 +52,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                 upscale_factor: 4,
                 irisCoordinates: irisCoordinates,
                 cropSize: cropSize,
+                irisRadius: irisRadius,
             });
 
             if (result.success && result.upscaled_image) {

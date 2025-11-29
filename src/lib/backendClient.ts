@@ -27,6 +27,7 @@ export interface ProcessIrisOptions {
   upscale_factor?: 2 | 4;
   irisCoordinates?: { x: number; y: number } | null;
   cropSize?: number;
+  irisRadius?: number | null;
 }
 
 class BackendClient {
@@ -90,12 +91,17 @@ class BackendClient {
         formData.append('upscale_factor', options.upscale_factor.toString());
       }
 
-      // Add iris coordinates if available
+      // Add iris coordinates and radius if available
       if (options.irisCoordinates) {
         formData.append('iris_x', options.irisCoordinates.x.toString());
         formData.append('iris_y', options.irisCoordinates.y.toString());
         formData.append('crop_size', (options.cropSize || 0).toString());
-        console.log('[BackendClient] Sending iris coordinates:', options.irisCoordinates);
+        if (options.irisRadius) {
+          formData.append('iris_radius', options.irisRadius.toString());
+          console.log('[BackendClient] Sending iris coordinates + radius:', options.irisCoordinates, 'radius:', options.irisRadius);
+        } else {
+          console.log('[BackendClient] Sending iris coordinates:', options.irisCoordinates);
+        }
       } else {
         console.log('[BackendClient] No coordinates - using center fallback');
       }

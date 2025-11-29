@@ -119,7 +119,8 @@ async def process_iris(
     upscale_factor: int = Form(4),
     iris_x: Optional[float] = Form(None),
     iris_y: Optional[float] = Form(None),
-    crop_size: Optional[float] = Form(None)
+    crop_size: Optional[float] = Form(None),
+    iris_radius: Optional[float] = Form(None)
 ):
     """
     Main endpoint: Segment iris with Iris-SAM + upscale with Real-ESRGAN.
@@ -156,7 +157,10 @@ async def process_iris(
         iris_center = None
         if iris_x is not None and iris_y is not None:
             iris_center = (iris_x, iris_y)
-            logger.info(f"   Iris coordinates provided: ({iris_x:.1f}, {iris_y:.1f})")
+            if iris_radius is not None:
+                logger.info(f"   Iris coordinates + radius provided: ({iris_x:.1f}, {iris_y:.1f}), radius={iris_radius:.1f}px")
+            else:
+                logger.info(f"   Iris coordinates provided: ({iris_x:.1f}, {iris_y:.1f})")
         else:
             logger.info(f"   No iris coordinates - using center fallback")
 
@@ -166,7 +170,8 @@ async def process_iris(
             img_array,
             return_mask=return_mask,
             return_intermediate=return_intermediate,
-            iris_center=iris_center
+            iris_center=iris_center,
+            iris_radius=iris_radius
         )
         processing_time = (time.time() - t0) * 1000
 

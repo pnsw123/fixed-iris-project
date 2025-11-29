@@ -15,6 +15,7 @@ export interface CaptureData {
     imageData: string;
     irisCoordinates: { x: number; y: number } | null;
     cropSize: number;
+    irisRadius: number | null;
 }
 
 export default function MobileCaptureScreen({
@@ -376,6 +377,18 @@ export default function MobileCaptureScreen({
         // Account for horizontal flip (selfie camera)
         in_crop_x = cropSize - in_crop_x;
 
+        // Transform iris diameter to crop coordinates
+        const irisDiameter_ac = currentReport.irisDiameter; // Analysis canvas coordinates
+
+        // CRITICAL: MediaPipe's iris landmarks only detect inner iris boundary, not the full visible iris.
+        // The visible colored iris is typically 2.2x larger than MediaPipe's detected boundary.
+        // This scale factor was determined empirically to match actual iris extent.
+        const IRIS_SCALE_FACTOR = 2.2;
+
+        const irisDiameter_video = irisDiameter_ac * ((scaleX + scaleY) / 2) * IRIS_SCALE_FACTOR;
+        const irisDiameter_crop = irisDiameter_video; // Same scale as crop (1:1 copy from video)
+        const irisRadius_crop = irisDiameter_crop / 2;
+
         // Validate iris is within crop bounds (with 5% margin)
         const isValid =
             in_crop_x > cropSize * 0.05 &&
@@ -383,8 +396,14 @@ export default function MobileCaptureScreen({
             in_crop_y > cropSize * 0.05 &&
             in_crop_y < cropSize * 0.95;
 
+        console.log('[Capture] Scale factors:', { scaleX, scaleY, avgScale: (scaleX + scaleY) / 2 });
+        console.log('[Capture] Iris diameter transformation:');
+        console.log(`  Analysis canvas (640x480): ${irisDiameter_ac.toFixed(2)}px`);
+        console.log(`  Video (${video.videoWidth}x${video.videoHeight}): ${irisDiameter_video.toFixed(2)}px`);
+        console.log(`  Crop (${cropSize}x${cropSize}): ${irisDiameter_crop.toFixed(2)}px`);
+        console.log(`  Radius for backend: ${irisRadius_crop.toFixed(2)}px`);
         console.log('[Capture] Crop dimensions:', { cropX, cropY, cropSize });
-        console.log('[Capture] Iris in crop:', { in_crop_x, in_crop_y, isValid });
+        console.log('[Capture] Iris in crop:', { in_crop_x, in_crop_y, diameter: irisDiameter_crop, radius: irisRadius_crop, isValid });
 
         canvas.width = cropSize;
         canvas.height = cropSize;
@@ -415,17 +434,19 @@ export default function MobileCaptureScreen({
         console.log(`[Capture] ✅ Image created: ${cropSize}x${cropSize}px`);
         console.log(`[Capture] Data URL length: ${imageData.length}`);
 
-        // Prepare capture data with coordinates
+        // Prepare capture data with coordinates and iris radius
         const captureData: CaptureData = {
             imageData,
             irisCoordinates: isValid ? { x: in_crop_x, y: in_crop_y } : null,
-            cropSize
+            cropSize,
+            irisRadius: isValid ? irisRadius_crop : null
         };
 
         console.log('[Capture] Capture data:', {
             hasCoordinates: !!captureData.irisCoordinates,
             coordinates: captureData.irisCoordinates,
-            cropSize: captureData.cropSize
+            cropSize: captureData.cropSize,
+            irisRadius: captureData.irisRadius
         });
 
         telemetry.logSummary();

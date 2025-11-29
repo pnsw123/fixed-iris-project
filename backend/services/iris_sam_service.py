@@ -17,7 +17,7 @@ from segment_anything import sam_model_registry, SamPredictor
 class IrisSAMService:
     """Service for iris segmentation using Iris-SAM (SAM fine-tuned for iris)."""
 
-    def __init__(self, model_path: str, sam_checkpoint: str, device: str = "mps"):
+    def __init__(self, model_path: str, sam_checkpoint: str, device: str = "mps", strict_mode: bool = False):
         """
         Initialize Iris-SAM model.
 
@@ -25,9 +25,13 @@ class IrisSAMService:
             model_path: Path to IrisSAM_model.pt (fine-tuned weights)
             sam_checkpoint: Path to sam_vit_b_01ec64.pth (SAM backbone)
             device: 'mps' (Apple Silicon GPU), 'cuda', or 'cpu'
+            strict_mode: If True, enforce circle/ellipse mask for near-perfect circularity
         """
+        self.strict_mode = strict_mode
         self.device = torch.device(device)
         print(f"[IrisSAM] Initializing on device: {device}")
+        if self.strict_mode:
+            print("[IrisSAM] Strict mask mode: ENABLED (enforcing circle/ellipse for higher quality)")
 
         # Load Iris-SAM fine-tuned weights first so we can infer backbone size
         print(f"[IrisSAM] Loading Iris-SAM fine-tuned weights from {model_path}...")
@@ -73,6 +77,11 @@ class IrisSAMService:
         self.predictor = SamPredictor(sam)
 
         print(f"[IrisSAM] Model loaded successfully!")
+        # Telemetry fields for downstream metadata
+        self.last_quality_raw: Optional[float] = None
+        self.last_quality_enforced: Optional[float] = None
+        self.last_mask_area_ratio: Optional[float] = None
+        self.mask_mode: str = "strict" if self.strict_mode else "default"
 
     def segment_iris(
         self,
@@ -123,22 +132,31 @@ class IrisSAMService:
                     iris_x, iris_y = original_w / 2, original_h / 2
                     prompt_type = "center_default"
 
-                # Optimization 3: Add negative prompt to exclude eyelid
-                # Positive point: iris center (foreground)
-                # Negative point: above iris (background - likely eyelid)
+                # Prompting: positive iris center + one or two negative eyelid points
+                # Negative above always; optional negative below in strict mode to clamp eyelid/cheek.
                 eyelid_offset = original_h * 0.20  # 20% above iris center
                 eyelid_y = max(0, iris_y - eyelid_offset)
+                eyelid_lower_y = min(original_h - 1, iris_y + eyelid_offset)
 
-                point_coords = np.array([
+                point_coords_list = [
                     [iris_x, iris_y],      # Positive: iris center
-                    [iris_x, eyelid_y]     # Negative: eyelid region
-                ])
-                point_labels = np.array([1, 0])  # 1 = foreground, 0 = background
+                    [iris_x, eyelid_y]     # Negative: upper eyelid region
+                ]
+                point_labels_list = [1, 0]  # 1 = foreground, 0 = background
+
+                if self.strict_mode:
+                    point_coords_list.append([iris_x, eyelid_lower_y])  # Negative: lower eyelid/cheek
+                    point_labels_list.append(0)
+
+                point_coords = np.array(point_coords_list)
+                point_labels = np.array(point_labels_list)
 
                 # Log for debugging
                 print(f"[IrisSAM] SAM prompt type: {prompt_type}")
                 print(f"[IrisSAM]   Positive (iris): ({point_coords[0][0]:.1f}, {point_coords[0][1]:.1f})")
-                print(f"[IrisSAM]   Negative (eyelid): ({point_coords[1][0]:.1f}, {point_coords[1][1]:.1f})")
+                print(f"[IrisSAM]   Negative (eyelid upper): ({point_coords[1][0]:.1f}, {point_coords[1][1]:.1f})")
+                if self.strict_mode and len(point_coords) > 2:
+                    print(f"[IrisSAM]   Negative (eyelid lower): ({point_coords[2][0]:.1f}, {point_coords[2][1]:.1f})")
 
                 # Optimization 1: Enable multi-mask output (SAM generates 3 masks)
                 masks, scores, logits = self.predictor.predict(
@@ -168,14 +186,27 @@ class IrisSAMService:
                         print(f"[IrisSAM] ⚠️  Mask appears inverted - fixing...")
                         mask = 255 - mask
 
-                    # Refine SAM output: minimal morphology + circle fitting to SAM segmentation
+                    # Refine SAM output: minimal morphology
                     kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close, iterations=1)
+                    if self.strict_mode:
+                        kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_open, iterations=1)
+
+                    # Preserve pre-enforcement mask for telemetry
+                    raw_mask_refined = mask.copy()
 
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     if contours:
                         largest_contour = max(contours, key=cv2.contourArea)
                         (circle_x, circle_y), radius = cv2.minEnclosingCircle(largest_contour)
+
+                        # Optional: use ellipse to refine radius in strict mode
+                        if self.strict_mode and len(largest_contour) >= 5:
+                            ellipse = cv2.fitEllipse(largest_contour)
+                            major = max(ellipse[1]) / 2.0
+                            minor = min(ellipse[1]) / 2.0
+                            radius = float((major + minor) / 2.0)
 
                         mask = np.zeros_like(mask)
                         cv2.circle(mask, (int(circle_x), int(circle_y)), int(radius), 255, -1)
@@ -192,9 +223,20 @@ class IrisSAMService:
                     # Apply mask to get clean iris
                     clean_iris = self._apply_mask(image, mask_soft)
 
-                    # Compute quality score based on circularity
+                    # Compute quality score(s) based on circularity
                     binary_for_quality = (mask_soft > 127).astype(np.uint8) * 255
                     quality_score = self._compute_quality(binary_for_quality)
+                    raw_quality_score = self._compute_quality(
+                        (raw_mask_refined > 127).astype(np.uint8) * 255
+                    )
+
+                    # Track mask area ratio for telemetry
+                    mask_area_ratio = float(np.sum(binary_for_quality > 0) / (original_h * original_w))
+
+                    # In strict mode, quality_score should be near 1; expose both for transparency
+                    self.last_quality_raw = raw_quality_score
+                    self.last_quality_enforced = quality_score
+                    self.last_mask_area_ratio = mask_area_ratio
 
                     return mask_soft, clean_iris, quality_score
                 else:

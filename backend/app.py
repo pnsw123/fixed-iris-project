@@ -72,12 +72,14 @@ async def startup_event():
         logger.info(f"Iris-SAM model: {settings.iris_sam_model}")
         logger.info(f"SAM checkpoint: {settings.sam_checkpoint}")
         logger.info(f"ESRGAN model: {settings.esrgan_model}")
+        logger.info(f"Strict iris mask mode: {settings.strict_iris_mask}")
 
         logger.info("[Startup] Loading Iris-SAM model...")
         iris_sam_service = IrisSAMService(
             model_path=settings.iris_sam_model,
             sam_checkpoint=settings.sam_checkpoint,
-            device=settings.device
+            device=settings.device,
+            strict_mode=settings.strict_iris_mask
         )
 
         logger.info("[Startup] Loading Real-ESRGAN model...")
@@ -280,7 +282,10 @@ async def segment_iris_only(image: UploadFile = File(...)):
             "processing_time_ms": processing_time,
             "mask": numpy_to_base64(mask, format='PNG'),
             "clean_iris": numpy_to_base64(clean_iris, format='PNG'),
-            "quality_score": quality_score
+            "quality_score": quality_score,
+            "quality_raw": getattr(iris_sam_service, "last_quality_raw", None),
+            "mask_area_ratio": getattr(iris_sam_service, "last_mask_area_ratio", None),
+            "mask_mode": getattr(iris_sam_service, "mask_mode", "default")
         }
 
     except ValueError as e:

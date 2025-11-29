@@ -184,17 +184,19 @@ class IrisSAMService:
                     else:
                         print("[IrisSAM] ⚠️  No contours found after SAM; using raw SAM mask without circle fitting")
 
-                    # Step 3: Minimal smoothing on circle edge for anti-aliasing
-                    mask = cv2.GaussianBlur(mask, (3, 3), 0.3)
-                    _, mask = cv2.threshold(mask, 200, 255, cv2.THRESH_BINARY)
+                    # Step 3: Anti-aliased edge for professional smoothness
+                    # Keep soft edges (no hard threshold) so upscaling blends naturally.
+                    mask_soft = cv2.GaussianBlur(mask.astype(np.float32), (5, 5), 1.2)
+                    mask_soft = np.clip(mask_soft, 0, 255).astype(np.uint8)
 
                     # Apply mask to get clean iris
-                    clean_iris = self._apply_mask(image, mask)
+                    clean_iris = self._apply_mask(image, mask_soft)
 
                     # Compute quality score based on circularity
-                    quality_score = self._compute_quality(mask)
+                    binary_for_quality = (mask_soft > 127).astype(np.uint8) * 255
+                    quality_score = self._compute_quality(binary_for_quality)
 
-                    return mask, clean_iris, quality_score
+                    return mask_soft, clean_iris, quality_score
                 else:
                     raise RuntimeError("SAM failed to generate masks")
 

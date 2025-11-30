@@ -73,6 +73,7 @@ class BackendClient {
     imageDataUrl: string,
     options: ProcessIrisOptions = {}
   ): Promise<ProcessIrisResponse> {
+    const PROCESS_TIMEOUT_MS = 120000; // Allow heavy models to finish
     try {
       // Convert base64 data URL to Blob
       const blob = await this.dataUrlToBlob(imageDataUrl);
@@ -112,7 +113,7 @@ class BackendClient {
       const response = await fetch(`${this.baseUrl}/api/v1/process-iris`, {
         method: 'POST',
         body: formData,
-        signal: AbortSignal.timeout(60000), // 60s timeout for processing
+        signal: AbortSignal.timeout(PROCESS_TIMEOUT_MS),
         // Don't set Content-Type - browser will set it with boundary
       });
 

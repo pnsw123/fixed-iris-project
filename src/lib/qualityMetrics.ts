@@ -111,16 +111,19 @@ export class QualityAnalyzer {
         const smoothedCenterY = this.centerYSMA.push(iris.center.y);
 
         // 2. Distance Score (based on iris size relative to frame)
-        // More permissive so users can capture without being too close.
-        const targetDiameterMin = analysisCanvas.height * 0.06; // 6% of frame height
-        const targetDiameterMax = analysisCanvas.height * 0.18; // 18% of frame height
+        // Require users to get closer, but base thresholds on the shorter side so portrait/landscape both work.
+        const refDim = Math.min(analysisCanvas.width, analysisCanvas.height);
+        const targetDiameterMin = refDim * 0.07;  // 7% of short side
+        const targetDiameterMax = refDim * 0.24;  // 24% of short side
         const targetDiameterIdeal = (targetDiameterMin + targetDiameterMax) / 2;
 
         let distanceScore = 0;
         let distanceStatus: 'ok' | 'warn' | 'fail' = 'fail';
         let distanceFeedback = '';
 
-        if (smoothedDiameter >= targetDiameterMin && smoothedDiameter <= targetDiameterMax) {
+        // Treat slightly-below-min as OK to avoid blocking when user is very close but fluctuating.
+        const okMin = targetDiameterMin * 0.93;
+        if (smoothedDiameter >= okMin && smoothedDiameter <= targetDiameterMax) {
             // Perfect range - calculate score based on closeness to ideal
             const deviation = Math.abs(smoothedDiameter - targetDiameterIdeal);
             const maxDeviation = (targetDiameterMax - targetDiameterMin) / 2;

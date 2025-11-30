@@ -34,6 +34,7 @@ export default function MobileCaptureScreen({
     const lastAnalysisTime = useRef<number>(0);
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const stableGoodFramesRef = useRef<number>(0);
+    const lastBlockedCountdownLogRef = useRef<number>(0);
 
     // --- State ---
     const isDebug = useDebugMode();
@@ -244,7 +245,7 @@ export default function MobileCaptureScreen({
             const isGoodForCountdown =
                 report.irisDetected &&
                 !!report.irisCropBox &&
-                report.distance.status !== 'fail' &&
+                report.distance.status === 'ok' && // Only start countdown when user is close enough
                 report.centering.status !== 'fail' &&
                 report.lighting.status !== 'fail';
 
@@ -264,7 +265,11 @@ export default function MobileCaptureScreen({
                 !isCapturing &&
                 !countdownIntervalRef.current
             ) {
-                console.log('[Capture] Starting countdown - conditions stable');
+                console.log('[Capture] Starting countdown - stable & close', {
+                    distance: report.distance,
+                    irisDiameter: report.irisDiameter.toFixed(2),
+                    cropBox: report.irisCropBox
+                });
                 setCountdown(3);
                 let count = 3;
                 countdownIntervalRef.current = setInterval(() => {
@@ -280,12 +285,27 @@ export default function MobileCaptureScreen({
                     }
                 }, 1000);
             } else if (!isGoodForCountdown && countdown !== null && countdown > 0 && countdownIntervalRef.current) {
-                console.log('[Capture] Aborting countdown - conditions no longer stable');
+                console.log('[Capture] Aborting countdown - conditions no longer stable', {
+                    distance: report.distance,
+                    centering: report.centering,
+                    lighting: report.lighting
+                });
                 if (countdownIntervalRef.current) {
                     clearInterval(countdownIntervalRef.current);
                     countdownIntervalRef.current = null;
                 }
                 setCountdown(null);
+            } else if (!isGoodForCountdown && countdown === null && report.irisDetected) {
+                const now = performance.now();
+                if (now - lastBlockedCountdownLogRef.current > 1000) {
+                    console.log('[Capture] Not starting countdown (needs closer/centered/light)', {
+                        distance: report.distance,
+                        centering: report.centering,
+                        lighting: report.lighting,
+                        irisDiameter: report.irisDiameter.toFixed(2)
+                    });
+                    lastBlockedCountdownLogRef.current = now;
+                }
             }
 
         } catch (err) {

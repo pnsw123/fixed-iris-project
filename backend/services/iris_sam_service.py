@@ -123,6 +123,16 @@ class IrisSAMService:
                     iris_x, iris_y = original_w / 2, original_h / 2
                     prompt_type = "center_default"
 
+                # If radius provided, build a tight box prompt around the iris to prevent over-segmentation.
+                box_prompt = None
+                if iris_radius is not None and iris_radius > 0:
+                    half_side = min(max(iris_radius * 1.2, 16), min(original_w, original_h) * 0.45)
+                    x0 = max(0, iris_x - half_side)
+                    y0 = max(0, iris_y - half_side)
+                    x1 = min(original_w, iris_x + half_side)
+                    y1 = min(original_h, iris_y + half_side)
+                    box_prompt = np.array([x0, y0, x1, y1], dtype=np.float32)
+
                 # Optimization 3: Add negative prompt to exclude eyelid
                 # Positive point: iris center (foreground)
                 # Negative point: above iris (background - likely eyelid)
@@ -144,7 +154,7 @@ class IrisSAMService:
                 masks, scores, logits = self.predictor.predict(
                     point_coords=point_coords,
                     point_labels=point_labels,
-                    box=None,
+                    box=box_prompt,
                     multimask_output=True,  # Changed from False
                 )
 
@@ -242,11 +252,11 @@ class IrisSAMService:
             # Compute circularity
             circularity = self._compute_quality(binary_mask)
 
-            # Compute size ratio (prefer masks that are 10-70% of image area)
+            # Compute size ratio (prefer masks that are ~5-30% of image area to avoid whole-eye masks)
             mask_area = np.sum(binary_mask > 0)
             image_area = image_shape[0] * image_shape[1]
             size_ratio = mask_area / image_area
-            size_penalty = 1.0 if 0.1 <= size_ratio <= 0.7 else 0.5
+            size_penalty = 1.0 if 0.05 <= size_ratio <= 0.30 else 0.25
 
             # Combined score: SAM confidence (60%) + circularity (30%) + size penalty (10%)
             combined_score = (

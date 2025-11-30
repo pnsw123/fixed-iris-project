@@ -401,9 +401,9 @@ export default function MobileCaptureScreen({
         const irisDiameter_ac = currentReport.irisDiameter; // Analysis canvas coordinates
 
         // CRITICAL: MediaPipe's iris landmarks only detect inner iris boundary, not the full visible iris.
-        // The visible colored iris is typically 2.2x larger than MediaPipe's detected boundary.
-        // This scale factor was determined empirically to match actual iris extent.
-        const IRIS_SCALE_FACTOR = 2.2;
+        // The visible colored iris is typically ~1.6x larger than MediaPipe's detected boundary.
+        // This scale factor was determined empirically to match actual iris extent while avoiding over-large prompts.
+        const IRIS_SCALE_FACTOR = 1.6;
 
         const irisDiameter_video = irisDiameter_ac * ((scaleX + scaleY) / 2) * IRIS_SCALE_FACTOR;
         const irisDiameter_crop = irisDiameter_video; // Same scale as crop (1:1 copy from video)

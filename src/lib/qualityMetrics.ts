@@ -11,10 +11,12 @@ export interface QualityReport {
     distance: { score: number, status: 'ok' | 'warn' | 'fail', feedback: string };
     lighting: { score: number, status: 'ok' | 'warn' | 'fail', feedback: string };
     centering: { score: number, status: 'ok' | 'warn' | 'fail', feedback: string };
+    focus: { score: number, status: 'ok' | 'warn' | 'fail', feedback: string };
 
     // Raw data
     rawBrightness: number;
     centeringRatio: number;
+    focusVariance?: number;
 
     // Raw landmarks for debugging
     landmarks?: { x: number, y: number }[];
@@ -53,6 +55,7 @@ export class QualityAnalyzer {
     private centerXSMA = new SimpleMovingAverage(5);
     private centerYSMA = new SimpleMovingAverage(5);
     private brightnessSMA = new SimpleMovingAverage(10);
+    private focusSMA = new SimpleMovingAverage(5);
     private isInitialized = false;
 
     constructor() { }
@@ -88,6 +91,7 @@ export class QualityAnalyzer {
             this.centerXSMA.reset();
             this.centerYSMA.reset();
             this.brightnessSMA.reset();
+            this.focusSMA.reset();
 
             return {
                 irisDetected: false,
@@ -96,6 +100,7 @@ export class QualityAnalyzer {
                 distance: { score: 0, status: 'fail', feedback: 'No face detected' },
                 lighting: { score: 0, status: 'fail', feedback: 'No face detected' },
                 centering: { score: 0, status: 'fail', feedback: 'No face detected' },
+                focus: { score: 0, status: 'fail', feedback: 'No face detected' },
                 rawBrightness: 0,
                 centeringRatio: 1,
                 landmarks: undefined,
@@ -144,7 +149,39 @@ export class QualityAnalyzer {
             distanceFeedback = 'Move back';
         }
 
-        // 3. Centering Score (distance from frame center)
+        // 3. Focus / sharpness (variance of Laplacian on iris crop)
+        let focusScore = 0;
+        let focusStatus: 'ok' | 'warn' | 'fail' = 'fail';
+        let focusFeedback = 'Blurry';
+
+        if (result.irisCropBox) {
+            const { x, y, size } = result.irisCropBox;
+            const sampleX = Math.max(1, Math.floor(x));
+            const sampleY = Math.max(1, Math.floor(y));
+            const sampleSize = Math.max(8, Math.floor(size));
+            const maxSize = Math.min(analysisCanvas.width, analysisCanvas.height);
+            const clampedSize = Math.min(sampleSize, maxSize - Math.max(sampleX, sampleY));
+            const imageData = ctx.getImageData(sampleX, sampleY, clampedSize, clampedSize);
+
+            const variance = this.computeVarianceOfLaplacian(imageData);
+            const smoothedFocus = this.focusSMA.push(variance);
+
+            focusScore = smoothedFocus;
+            if (smoothedFocus >= 140) {
+                focusStatus = 'ok';
+                focusFeedback = 'Sharp';
+            } else if (smoothedFocus >= 90) {
+                focusStatus = 'warn';
+                focusFeedback = 'Almost sharp';
+            } else {
+                focusStatus = 'fail';
+                focusFeedback = 'Blurry';
+            }
+        } else {
+            this.focusSMA.reset();
+        }
+
+        // 4. Centering Score (distance from frame center)
         const frameCenterX = analysisCanvas.width / 2;
         const frameCenterY = analysisCanvas.height / 2;
         const distFromCenter = Math.hypot(smoothedCenterX - frameCenterX, smoothedCenterY - frameCenterY);
@@ -158,7 +195,7 @@ export class QualityAnalyzer {
         const centeringFeedback = 
             centeringScore >= 60 ? 'Well centered' : 'Center your eye';
 
-        // 4. Lighting Score (face brightness analysis)
+        // 5. Lighting Score (face brightness analysis)
         let rawBrightness = 0;
         if (result.faceBounds) {
             const bounds = result.faceBounds;
@@ -215,13 +252,51 @@ export class QualityAnalyzer {
             distance: { score: distanceScore, status: distanceStatus, feedback: distanceFeedback },
             lighting: { score: lightingScore, status: lightingStatus, feedback: lightingFeedback },
             centering: { score: centeringScore, status: centeringStatus, feedback: centeringFeedback },
+            focus: { score: focusScore, status: focusStatus, feedback: focusFeedback },
 
             rawBrightness: smoothedBrightness,
             centeringRatio,
+            focusVariance: focusScore,
 
             landmarks: result.landmarks,
             irisCropBox: result.irisCropBox
         };
+    }
+
+    private computeVarianceOfLaplacian(imageData: ImageData): number {
+        const { width, height, data } = imageData;
+        const gray = new Float32Array(width * height);
+        for (let i = 0; i < width * height; i++) {
+            const r = data[i * 4];
+            const g = data[i * 4 + 1];
+            const b = data[i * 4 + 2];
+            gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+        }
+
+        let sum = 0;
+        let sumSq = 0;
+        let count = 0;
+
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                const center = gray[idx];
+                const lap =
+                    4 * center -
+                    gray[idx - 1] -
+                    gray[idx + 1] -
+                    gray[idx - width] -
+                    gray[idx + width];
+                sum += lap;
+                sumSq += lap * lap;
+                count++;
+            }
+        }
+
+        if (count === 0) return 0;
+        const mean = sum / count;
+        const variance = sumSq / count - mean * mean;
+        return Math.max(0, variance);
     }
 }
 

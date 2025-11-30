@@ -35,6 +35,8 @@ export default function MobileCaptureScreen({
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const stableGoodFramesRef = useRef<number>(0);
     const lastBlockedCountdownLogRef = useRef<number>(0);
+    const focusLockAccumRef = useRef<number>(0);
+    const lastFocusTimestampRef = useRef<number>(0);
 
     // --- State ---
     const isDebug = useDebugMode();
@@ -47,9 +49,10 @@ export default function MobileCaptureScreen({
     const [screenIrisPosition, setScreenIrisPosition] = useState<{ x: number, y: number } | null>(null);
     const [screenIrisDiameter, setScreenIrisDiameter] = useState<number>(120);
     const [isCapturing, setIsCapturing] = useState(false); // Prevent multiple captures
+    const [isFocusLocked, setIsFocusLocked] = useState(false);
 
     // --- Compute guidance message ---
-    const computeGuidance = useCallback((report: QualityReport | null): string => {
+    const computeGuidance = useCallback((report: QualityReport | null, focusLocked: boolean): string => {
         if (!report || !report.irisDetected) {
             return 'Align one eye in the circle';
         }
@@ -59,6 +62,15 @@ export default function MobileCaptureScreen({
         }
 
         // Priority-based guidance
+        if (report.focus.status === 'fail') {
+            return 'Image is blurry — hold still to focus';
+        }
+        if (report.focus.status === 'warn') {
+            return 'Almost sharp — keep still...';
+        }
+        if (!focusLocked) {
+            return 'Perfect focus. Hold still...';
+        }
         if (report.distance.status === 'fail') {
             return report.distance.feedback;
         }
@@ -203,8 +215,31 @@ export default function MobileCaptureScreen({
                 }
             }
 
+            // Focus lock accumulation
+            const nowTs = performance.now();
+            const lastTs = lastFocusTimestampRef.current || nowTs;
+            const deltaMs = nowTs - lastTs;
+            lastFocusTimestampRef.current = nowTs;
+
+            if (report.focus.status === 'ok') {
+                focusLockAccumRef.current += deltaMs;
+            } else {
+                focusLockAccumRef.current = 0;
+            }
+
+            const FOCUS_LOCK_MS = 800;
+            const locked = focusLockAccumRef.current >= FOCUS_LOCK_MS;
+            if (locked !== isFocusLocked) {
+                setIsFocusLocked(locked);
+            }
+
+            if (!report.irisDetected) {
+                focusLockAccumRef.current = 0;
+                if (isFocusLocked) setIsFocusLocked(false);
+            }
+
             setCurrentReport(report);
-            setGuidanceMessage(computeGuidance(report));
+            setGuidanceMessage(computeGuidance(report, locked));
 
             // Convert iris position from analysis canvas to screen coordinates
             if (report.irisDetected && report.irisCenter && videoRef.current) {
@@ -245,6 +280,8 @@ export default function MobileCaptureScreen({
             const isGoodForCountdown =
                 report.irisDetected &&
                 !!report.irisCropBox &&
+                report.focus.status === 'ok' &&
+                locked &&
                 report.distance.status === 'ok' && // Only start countdown when user is close enough
                 report.centering.status !== 'fail' &&
                 report.lighting.status !== 'fail';
@@ -267,6 +304,7 @@ export default function MobileCaptureScreen({
             ) {
                 console.log('[Capture] Starting countdown - stable & close', {
                     distance: report.distance,
+                    focus: { status: report.focus.status, score: report.focus.score },
                     irisDiameter: report.irisDiameter.toFixed(2),
                     cropBox: report.irisCropBox
                 });
@@ -298,7 +336,9 @@ export default function MobileCaptureScreen({
             } else if (!isGoodForCountdown && countdown === null && report.irisDetected) {
                 const now = performance.now();
                 if (now - lastBlockedCountdownLogRef.current > 1000) {
-                    console.log('[Capture] Not starting countdown (needs closer/centered/light)', {
+                    console.log('[Capture] Not starting countdown (needs focus/closer/centered/light)', {
+                        focus: report.focus,
+                        focusLocked: locked,
                         distance: report.distance,
                         centering: report.centering,
                         lighting: report.lighting,
@@ -311,7 +351,7 @@ export default function MobileCaptureScreen({
         } catch (err) {
             console.warn('Analysis failed:', err);
         }
-    }, [isDebug, countdown, computeGuidance, isCapturing]);
+    }, [isDebug, countdown, computeGuidance, isCapturing, isFocusLocked]);
 
     const startAnalysisLoop = useCallback(() => {
         console.log('[Capture] Starting analysis loop...');
@@ -340,7 +380,7 @@ export default function MobileCaptureScreen({
     }, []);
 
     // --- Capture ---
-    const performCapture = useCallback(() => {
+    const performCapture = useCallback(async () => {
         console.log('[Capture] performCapture called');
         console.log('[Capture] isCapturing:', isCapturing);
         console.log('[Capture] currentReport:', currentReport);
@@ -348,15 +388,21 @@ export default function MobileCaptureScreen({
         if (!videoRef.current || !canvasRef.current || !currentReport) {
             console.warn('[Capture] Cannot capture - missing dependencies');
             console.warn('[Capture] video:', !!videoRef.current, 'canvas:', !!canvasRef.current, 'report:', !!currentReport);
+            setIsCapturing(false);
             return;
         }
 
         if (!currentReport.irisDetected || !currentReport.irisCropBox) {
             console.warn('[Capture] No iris detected or no crop box');
+            setIsCapturing(false);
             return;
         }
 
-        console.log('[Capture] 🎯 Executing capture...');
+        const FOCUS_OK_THRESHOLD = 140; // Match qualityMetrics focus OK threshold
+        const BURST_FRAMES = 6;
+        const BURST_INTERVAL_MS = 40;
+
+        console.log('[Capture] 🎯 Executing capture (burst mode)...');
 
         const video = videoRef.current;
         const canvas = canvasRef.current;
@@ -366,6 +412,7 @@ export default function MobileCaptureScreen({
         const analysisCanvas = analysisCanvasRef.current;
         if (!analysisCanvas) {
             console.error('[Capture] Analysis canvas is null!');
+            setIsCapturing(false);
             return;
         }
 
@@ -431,32 +478,89 @@ export default function MobileCaptureScreen({
         const ctx = canvas.getContext('2d');
         if (!ctx) {
             console.error('[Capture] Cannot get canvas context!');
+            setIsCapturing(false);
             return;
         }
 
-        ctx.drawImage(video, cropX, cropY, cropSize, cropSize, 0, 0, cropSize, cropSize);
+        const computeSharpness = (imageData: ImageData) => {
+            const { width, height, data } = imageData;
+            const gray = new Float32Array(width * height);
+            for (let i = 0; i < width * height; i++) {
+                const r = data[i * 4];
+                const g = data[i * 4 + 1];
+                const b = data[i * 4 + 2];
+                gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+            }
 
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = cropSize;
-        tempCanvas.height = cropSize;
-        const tempCtx = tempCanvas.getContext('2d');
-        if (!tempCtx) {
-            console.error('[Capture] Cannot get temp canvas context!');
+            let sum = 0;
+            let sumSq = 0;
+            let count = 0;
+            for (let yy = 1; yy < height - 1; yy++) {
+                for (let xx = 1; xx < width - 1; xx++) {
+                    const idx = yy * width + xx;
+                    const center = gray[idx];
+                    const lap = 4 * center - gray[idx - 1] - gray[idx + 1] - gray[idx - width] - gray[idx + width];
+                    sum += lap;
+                    sumSq += lap * lap;
+                    count++;
+                }
+            }
+            if (count === 0) return 0;
+            const mean = sum / count;
+            const variance = sumSq / count - mean * mean;
+            return Math.max(0, variance);
+        };
+
+        const captureFrame = () => {
+            ctx.drawImage(video, cropX, cropY, cropSize, cropSize, 0, 0, cropSize, cropSize);
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = cropSize;
+            tempCanvas.height = cropSize;
+            const tempCtx = tempCanvas.getContext('2d');
+            if (!tempCtx) {
+                throw new Error('Cannot get temp canvas context');
+            }
+
+            tempCtx.save();
+            tempCtx.scale(-1, 1);
+            tempCtx.drawImage(canvas, -cropSize, 0);
+            tempCtx.restore();
+
+            const imageData = tempCtx.getImageData(0, 0, cropSize, cropSize);
+            const sharpness = computeSharpness(imageData);
+            const imageDataUrl = tempCanvas.toDataURL('image/jpeg', 0.95);
+
+            return { imageDataUrl, sharpness };
+        };
+
+        let bestFrame: { imageDataUrl: string; sharpness: number } | null = null;
+        for (let i = 0; i < BURST_FRAMES; i++) {
+            const frame = captureFrame();
+            if (!bestFrame || frame.sharpness > bestFrame.sharpness) {
+                bestFrame = frame;
+            }
+            if (i < BURST_FRAMES - 1) {
+                await new Promise((resolve) => setTimeout(resolve, BURST_INTERVAL_MS));
+            }
+        }
+
+        if (!bestFrame || bestFrame.sharpness < FOCUS_OK_THRESHOLD) {
+            console.warn('[Capture] Burst too blurry - aborting capture', {
+                bestSharpness: bestFrame?.sharpness ?? 0,
+                threshold: FOCUS_OK_THRESHOLD
+            });
+            setCountdown(null);
+            setIsCapturing(false);
+            setGuidanceMessage('Too blurry — hold still to focus');
             return;
         }
 
-        tempCtx.save();
-        tempCtx.scale(-1, 1);
-        tempCtx.drawImage(canvas, -cropSize, 0);
-        tempCtx.restore();
-
-        const imageData = tempCanvas.toDataURL('image/jpeg', 0.95);
-        console.log(`[Capture] ✅ Image created: ${cropSize}x${cropSize}px`);
-        console.log(`[Capture] Data URL length: ${imageData.length}`);
+        console.log('[Capture] Selected sharpest frame', { sharpness: bestFrame.sharpness });
 
         // Prepare capture data with coordinates and iris radius
         const captureData: CaptureData = {
-            imageData,
+            imageData: bestFrame.imageDataUrl,
             irisCoordinates: isValid ? { x: in_crop_x, y: in_crop_y } : null,
             cropSize,
             irisRadius: isValid ? irisRadius_crop : null
@@ -490,7 +594,9 @@ export default function MobileCaptureScreen({
             console.log('[Capture] Countdown finished! Triggering capture...');
             setCountdown(null);
             setIsCapturing(true); // Set flag before capture
-            performCapture();
+            (async () => {
+                await performCapture();
+            })();
         }
     }, [countdown, performCapture]);
 
@@ -627,6 +733,16 @@ export default function MobileCaptureScreen({
                 {!isInitializing && currentReport && (
                     <div className="pointer-events-none pb-8 px-6">
                         <div className="flex gap-2 justify-center">
+                            <StatusIndicator
+                                type="focus"
+                                status={
+                                    currentReport.focus.status === 'ok' && isFocusLocked
+                                        ? 'ok'
+                                        : currentReport.focus.status === 'warn'
+                                            ? 'warn'
+                                            : 'fail'
+                                }
+                            />
                             <StatusIndicator
                                 type="distance"
                                 status={currentReport.distance.status === 'ok' ? 'ok' : currentReport.distance.status === 'warn' ? 'warn' : 'fail'}

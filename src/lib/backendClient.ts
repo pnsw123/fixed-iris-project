@@ -73,7 +73,8 @@ class BackendClient {
     imageDataUrl: string,
     options: ProcessIrisOptions = {}
   ): Promise<ProcessIrisResponse> {
-    const PROCESS_TIMEOUT_MS = 120000; // Allow heavy models to finish
+    // Allow heavy models to finish; extended to 10 minutes to avoid premature aborts
+    const PROCESS_TIMEOUT_MS = 600000;
     try {
       // Convert base64 data URL to Blob
       const blob = await this.dataUrlToBlob(imageDataUrl);

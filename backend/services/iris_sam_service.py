@@ -306,6 +306,11 @@ class IrisSAMService:
                     else:
                         print("[IrisSAM] ⚠️  No contours found after SAM; using raw SAM mask without fitting")
 
+                    # Compute quality score based on circularity BEFORE anti-aliasing
+                    # This ensures the score reflects the geometric quality, not blur artifacts
+                    quality_score = self._compute_quality(mask)
+                    print(f"[IrisSAM] Geometric quality score (pre-blur): {quality_score:.3f}")
+
                     # Step 4: Anti-aliased edge for professional smoothness
                     # Soft edges ensure natural blending during upscaling
                     mask_soft = cv2.GaussianBlur(mask.astype(np.float32), (7, 7), 1.5)
@@ -313,10 +318,6 @@ class IrisSAMService:
 
                     # Apply mask to get clean iris
                     clean_iris = self._apply_mask(image, mask_soft)
-
-                    # Compute quality score based on circularity
-                    binary_for_quality = (mask_soft > 127).astype(np.uint8) * 255
-                    quality_score = self._compute_quality(binary_for_quality)
 
                     return mask_soft, clean_iris, quality_score
                 else:

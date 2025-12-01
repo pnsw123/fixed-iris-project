@@ -123,32 +123,102 @@ class IrisSAMService:
                     iris_x, iris_y = original_w / 2, original_h / 2
                     prompt_type = "center_default"
 
-                # If radius provided, build a tight box prompt around the iris to prevent over-segmentation.
+                # Build TIGHT box prompt around iris to prevent over-segmentation
                 box_prompt = None
                 if iris_radius is not None and iris_radius > 0:
-                    half_side = min(max(iris_radius * 1.2, 16), min(original_w, original_h) * 0.45)
+                    # Tighter constraint: 1.08x radius (was 1.2x) - keeps SAM focused on iris
+                    half_side = min(max(iris_radius * 1.08, 16), min(original_w, original_h) * 0.45)
                     x0 = max(0, iris_x - half_side)
                     y0 = max(0, iris_y - half_side)
                     x1 = min(original_w, iris_x + half_side)
                     y1 = min(original_h, iris_y + half_side)
                     box_prompt = np.array([x0, y0, x1, y1], dtype=np.float32)
 
-                # Optimization 3: Add negative prompt to exclude eyelid
-                # Positive point: iris center (foreground)
-                # Negative point: above iris (background - likely eyelid)
-                eyelid_offset = original_h * 0.20  # 20% above iris center
-                eyelid_y = max(0, iris_y - eyelid_offset)
+                # ENHANCED Multi-Point Prompting Strategy for 95%+ Quality
+                # Strategy: Give SAM explicit positive (iris) and negative (non-iris) examples
 
-                point_coords = np.array([
-                    [iris_x, iris_y],      # Positive: iris center
-                    [iris_x, eyelid_y]     # Negative: eyelid region
-                ])
-                point_labels = np.array([1, 0])  # 1 = foreground, 0 = background
+                # Estimate iris region boundaries
+                if iris_radius is not None and iris_radius > 0:
+                    radius = iris_radius
+                else:
+                    # Fallback: assume iris is ~25% of image width
+                    radius = min(original_w, original_h) * 0.25
+
+                # Build strategic prompt points
+                point_coords_list = []
+                point_labels_list = []
+
+                # POSITIVE PROMPTS (iris interior)
+                # 1. Center point (most confident)
+                point_coords_list.append([iris_x, iris_y])
+                point_labels_list.append(1)
+
+                # 2-5. Four additional points inside iris (cardinal directions at 0.5 radius)
+                # This gives SAM strong confidence about iris interior
+                inner_radius = radius * 0.5
+                for angle in [0, 90, 180, 270]:
+                    angle_rad = np.deg2rad(angle)
+                    px = iris_x + inner_radius * np.cos(angle_rad)
+                    py = iris_y + inner_radius * np.sin(angle_rad)
+                    # Validate bounds
+                    if 0 <= px < original_w and 0 <= py < original_h:
+                        point_coords_list.append([px, py])
+                        point_labels_list.append(1)
+
+                # NEGATIVE PROMPTS (exclude non-iris regions)
+                # 6. Upper eyelid (above iris)
+                eyelid_offset_upper = radius * 1.3
+                eyelid_y_upper = max(0, iris_y - eyelid_offset_upper)
+                point_coords_list.append([iris_x, eyelid_y_upper])
+                point_labels_list.append(0)
+
+                # 7. Lower eyelid (below iris)
+                eyelid_offset_lower = radius * 1.3
+                eyelid_y_lower = min(original_h, iris_y + eyelid_offset_lower)
+                point_coords_list.append([iris_x, eyelid_y_lower])
+                point_labels_list.append(0)
+
+                # 8. Left eye corner / temporal region
+                left_corner_x = max(0, iris_x - radius * 1.4)
+                point_coords_list.append([left_corner_x, iris_y])
+                point_labels_list.append(0)
+
+                # 9. Right eye corner / nasal region
+                right_corner_x = min(original_w, iris_x + radius * 1.4)
+                point_coords_list.append([right_corner_x, iris_y])
+                point_labels_list.append(0)
+
+                # 10-11. Upper-left and upper-right (eyelashes/eyelid)
+                upper_left_x = max(0, iris_x - radius * 0.9)
+                upper_left_y = max(0, iris_y - radius * 1.1)
+                point_coords_list.append([upper_left_x, upper_left_y])
+                point_labels_list.append(0)
+
+                upper_right_x = min(original_w, iris_x + radius * 0.9)
+                upper_right_y = max(0, iris_y - radius * 1.1)
+                point_coords_list.append([upper_right_x, upper_right_y])
+                point_labels_list.append(0)
+
+                # 12-13. Lower-left and lower-right (lower eyelid/lashes)
+                lower_left_x = max(0, iris_x - radius * 0.9)
+                lower_left_y = min(original_h, iris_y + radius * 1.1)
+                point_coords_list.append([lower_left_x, lower_left_y])
+                point_labels_list.append(0)
+
+                lower_right_x = min(original_w, iris_x + radius * 0.9)
+                lower_right_y = min(original_h, iris_y + radius * 1.1)
+                point_coords_list.append([lower_right_x, lower_right_y])
+                point_labels_list.append(0)
+
+                point_coords = np.array(point_coords_list, dtype=np.float32)
+                point_labels = np.array(point_labels_list, dtype=np.int32)
 
                 # Log for debugging
+                num_positive = np.sum(point_labels == 1)
+                num_negative = np.sum(point_labels == 0)
                 print(f"[IrisSAM] SAM prompt type: {prompt_type}")
-                print(f"[IrisSAM]   Positive (iris): ({point_coords[0][0]:.1f}, {point_coords[0][1]:.1f})")
-                print(f"[IrisSAM]   Negative (eyelid): ({point_coords[1][0]:.1f}, {point_coords[1][1]:.1f})")
+                print(f"[IrisSAM]   Multi-point strategy: {num_positive} positive + {num_negative} negative prompts")
+                print(f"[IrisSAM]   Iris center: ({iris_x:.1f}, {iris_y:.1f}), radius: {radius:.1f}px")
 
                 # Optimization 1: Enable multi-mask output (SAM generates 3 masks)
                 masks, scores, logits = self.predictor.predict(
@@ -178,25 +248,67 @@ class IrisSAMService:
                         print(f"[IrisSAM] ⚠️  Mask appears inverted - fixing...")
                         mask = 255 - mask
 
-                    # Refine SAM output: minimal morphology + circle fitting to SAM segmentation
-                    kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-                    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close, iterations=1)
+                    # ==================================================================
+                    # POST-PROCESSING: Refine SAM output to achieve 95%+ quality
+                    # ==================================================================
 
+                    # Step 1: Morphological cleaning - close small holes
+                    kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close, iterations=2)
+
+                    # Step 2: Remove small disconnected regions (keep only largest component)
+                    # This eliminates noise/artifacts from SAM
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     if contours:
+                        # Find largest contour (should be iris)
                         largest_contour = max(contours, key=cv2.contourArea)
-                        (circle_x, circle_y), radius = cv2.minEnclosingCircle(largest_contour)
+                        largest_area = cv2.contourArea(largest_contour)
 
-                        mask = np.zeros_like(mask)
-                        cv2.circle(mask, (int(circle_x), int(circle_y)), int(radius), 255, -1)
+                        # Create clean mask with ONLY the largest component
+                        mask_clean = np.zeros_like(mask)
+                        cv2.drawContours(mask_clean, [largest_contour], -1, 255, -1)
 
-                        print(f"[IrisSAM] Fitted circle from SAM mask: center=({circle_x:.1f}, {circle_y:.1f}), radius={radius:.1f}px")
+                        # Count how many small regions we removed
+                        num_removed = len(contours) - 1
+                        if num_removed > 0:
+                            print(f"[IrisSAM] Removed {num_removed} small disconnected region(s)")
+
+                        mask = mask_clean
+
+                        # Step 3: Fit ellipse (more accurate than circle for iris)
+                        # Irises appear elliptical due to perspective and anatomy
+                        if len(largest_contour) >= 5:  # Need at least 5 points for fitEllipse
+                            try:
+                                ellipse = cv2.fitEllipse(largest_contour)
+                                (center_x, center_y), (width, height), angle = ellipse
+
+                                # Create smooth elliptical mask
+                                mask = np.zeros_like(mask)
+                                cv2.ellipse(mask, ellipse, 255, -1)
+
+                                print(f"[IrisSAM] Fitted ellipse: center=({center_x:.1f}, {center_y:.1f}), "
+                                      f"axes=({width/2:.1f}x{height/2:.1f}), angle={angle:.1f}°")
+
+                                # Calculate ellipse circularity (1.0 = perfect circle)
+                                ellipse_circularity = min(width, height) / max(width, height)
+                                print(f"[IrisSAM] Ellipse circularity: {ellipse_circularity:.3f} (1.0 = perfect circle)")
+
+                            except cv2.error as e:
+                                # Fallback: use minimum enclosing circle if ellipse fitting fails
+                                print(f"[IrisSAM] Ellipse fitting failed, using circle fallback: {e}")
+                                (circle_x, circle_y), radius = cv2.minEnclosingCircle(largest_contour)
+                                mask = np.zeros_like(mask)
+                                cv2.circle(mask, (int(circle_x), int(circle_y)), int(radius), 255, -1)
+                                print(f"[IrisSAM] Fitted circle: center=({circle_x:.1f}, {circle_y:.1f}), radius={radius:.1f}px")
+                        else:
+                            print(f"[IrisSAM] ⚠️  Contour has only {len(largest_contour)} points, skipping ellipse fit")
+
                     else:
-                        print("[IrisSAM] ⚠️  No contours found after SAM; using raw SAM mask without circle fitting")
+                        print("[IrisSAM] ⚠️  No contours found after SAM; using raw SAM mask without fitting")
 
-                    # Step 3: Anti-aliased edge for professional smoothness
-                    # Keep soft edges (no hard threshold) so upscaling blends naturally.
-                    mask_soft = cv2.GaussianBlur(mask.astype(np.float32), (5, 5), 1.2)
+                    # Step 4: Anti-aliased edge for professional smoothness
+                    # Soft edges ensure natural blending during upscaling
+                    mask_soft = cv2.GaussianBlur(mask.astype(np.float32), (7, 7), 1.5)
                     mask_soft = np.clip(mask_soft, 0, 255).astype(np.uint8)
 
                     # Apply mask to get clean iris
@@ -249,23 +361,35 @@ class IrisSAMService:
             # Convert to binary
             binary_mask = (mask > 0.5).astype(np.uint8) * 255
 
-            # Compute circularity
+            # Compute circularity (most important for iris quality)
             circularity = self._compute_quality(binary_mask)
 
             # Compute size ratio (prefer masks that are ~5-30% of image area to avoid whole-eye masks)
             mask_area = np.sum(binary_mask > 0)
             image_area = image_shape[0] * image_shape[1]
             size_ratio = mask_area / image_area
-            size_penalty = 1.0 if 0.05 <= size_ratio <= 0.30 else 0.25
 
-            # Combined score: SAM confidence (60%) + circularity (30%) + size penalty (10%)
+            # Strong size penalty for masks outside ideal range
+            if 0.05 <= size_ratio <= 0.30:
+                size_score = 1.0
+            elif size_ratio < 0.05:
+                # Too small - likely noise
+                size_score = 0.1
+            else:
+                # Too large - likely whole eye or over-segmentation
+                size_score = max(0.2, 1.0 - (size_ratio - 0.30) / 0.40)
+
+            # UPDATED: Prioritize circularity more heavily for iris quality
+            # Combined score: circularity (50%) + SAM confidence (35%) + size (15%)
+            # Rationale: Iris MUST be circular, so circularity is most important
             combined_score = (
-                sam_score * 0.6 +
-                circularity * 0.3 +
-                size_penalty * 0.1
+                circularity * 0.50 +
+                sam_score * 0.35 +
+                size_score * 0.15
             )
 
-            print(f"[IrisSAM] Mask {i+1}: SAM={sam_score:.3f}, circ={circularity:.3f}, size={size_ratio:.2f}, combined={combined_score:.3f}")
+            print(f"[IrisSAM] Mask {i+1}: circ={circularity:.3f}, SAM={sam_score:.3f}, "
+                  f"size={size_ratio:.2%} (score={size_score:.2f}), combined={combined_score:.3f}")
 
             if combined_score > best_score:
                 best_score = combined_score

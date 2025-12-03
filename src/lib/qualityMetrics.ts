@@ -55,8 +55,13 @@ export class QualityAnalyzer {
     private centerXSMA = new SimpleMovingAverage(5);
     private centerYSMA = new SimpleMovingAverage(5);
     private brightnessSMA = new SimpleMovingAverage(10);
-    private focusSMA = new SimpleMovingAverage(5);
+    private focusSMA = new SimpleMovingAverage(3); // Reduced from 5 for faster response
     private isInitialized = false;
+
+    // Focus thresholds - calibrated for real-world blur detection
+    // These are normalized values (variance / image_intensity) to be size-independent
+    private readonly FOCUS_THRESHOLD_OK = 100;    // Above this = sharp
+    private readonly FOCUS_THRESHOLD_WARN = 50;   // Above this = acceptable
 
     constructor() { }
 
@@ -149,33 +154,45 @@ export class QualityAnalyzer {
             distanceFeedback = 'Move back';
         }
 
-        // 3. Focus / sharpness (variance of Laplacian on iris crop)
+        // 3. Focus / sharpness - IMPROVED
         let focusScore = 0;
         let focusStatus: 'ok' | 'warn' | 'fail' = 'fail';
         let focusFeedback = 'Blurry';
+        let rawFocusVariance = 0;
 
         if (result.irisCropBox) {
             const { x, y, size } = result.irisCropBox;
-            const sampleX = Math.max(1, Math.floor(x));
-            const sampleY = Math.max(1, Math.floor(y));
-            const sampleSize = Math.max(8, Math.floor(size));
-            const maxSize = Math.min(analysisCanvas.width, analysisCanvas.height);
-            const clampedSize = Math.min(sampleSize, maxSize - Math.max(sampleX, sampleY));
-            const imageData = ctx.getImageData(sampleX, sampleY, clampedSize, clampedSize);
+            
+            // Ensure we have a valid sample region
+            const sampleX = Math.max(0, Math.floor(x));
+            const sampleY = Math.max(0, Math.floor(y));
+            const availableWidth = analysisCanvas.width - sampleX;
+            const availableHeight = analysisCanvas.height - sampleY;
+            const sampleSize = Math.min(Math.floor(size), availableWidth, availableHeight);
+            
+            if (sampleSize >= 16) { // Need minimum size for reliable measurement
+                const imageData = ctx.getImageData(sampleX, sampleY, sampleSize, sampleSize);
+                
+                // Compute focus using improved method
+                rawFocusVariance = this.computeFocusScore(imageData);
+                const smoothedFocus = this.focusSMA.push(rawFocusVariance);
 
-            const variance = this.computeVarianceOfLaplacian(imageData);
-            const smoothedFocus = this.focusSMA.push(variance);
-
-            focusScore = smoothedFocus;
-            if (smoothedFocus >= 140) {
-                focusStatus = 'ok';
-                focusFeedback = 'Sharp';
-            } else if (smoothedFocus >= 90) {
-                focusStatus = 'warn';
-                focusFeedback = 'Almost sharp';
+                focusScore = smoothedFocus;
+                
+                // Thresholds tuned for typical webcam/phone camera
+                if (smoothedFocus >= this.FOCUS_THRESHOLD_OK) {
+                    focusStatus = 'ok';
+                    focusFeedback = 'Sharp';
+                } else if (smoothedFocus >= this.FOCUS_THRESHOLD_WARN) {
+                    focusStatus = 'warn';
+                    focusFeedback = 'Almost sharp';
+                } else {
+                    focusStatus = 'fail';
+                    focusFeedback = 'Blurry - hold still';
+                }
             } else {
-                focusStatus = 'fail';
-                focusFeedback = 'Blurry';
+                this.focusSMA.reset();
+                focusFeedback = 'Move closer';
             }
         } else {
             this.focusSMA.reset();
@@ -298,6 +315,84 @@ export class QualityAnalyzer {
         const mean = sum / count;
         const variance = sumSq / count - mean * mean;
         return Math.max(0, variance);
+    }
+
+    /**
+     * Improved focus scoring that combines multiple edge detection methods
+     * for more accurate blur detection
+     */
+    private computeFocusScore(imageData: ImageData): number {
+        const { width, height, data } = imageData;
+        
+        // Convert to grayscale
+        const gray = new Float32Array(width * height);
+        let totalIntensity = 0;
+        
+        for (let i = 0; i < width * height; i++) {
+            const r = data[i * 4];
+            const g = data[i * 4 + 1];
+            const b = data[i * 4 + 2];
+            const val = 0.299 * r + 0.587 * g + 0.114 * b;
+            gray[i] = val;
+            totalIntensity += val;
+        }
+        
+        const avgIntensity = totalIntensity / (width * height);
+        
+        // Skip if image is too dark or too bright (unreliable focus measurement)
+        if (avgIntensity < 30 || avgIntensity > 240) {
+            return 0;
+        }
+
+        // Method 1: Laplacian variance (detects all edges)
+        let lapSum = 0;
+        let lapSumSq = 0;
+        let count = 0;
+
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                const center = gray[idx];
+                // 4-connected Laplacian
+                const lap = 4 * center - gray[idx - 1] - gray[idx + 1] - gray[idx - width] - gray[idx + width];
+                lapSum += lap;
+                lapSumSq += lap * lap;
+                count++;
+            }
+        }
+
+        if (count === 0) return 0;
+        
+        const lapMean = lapSum / count;
+        const lapVariance = lapSumSq / count - lapMean * lapMean;
+
+        // Method 2: Gradient magnitude (Sobel-like)
+        let gradientSum = 0;
+        
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                // Horizontal gradient
+                const gx = gray[idx + 1] - gray[idx - 1];
+                // Vertical gradient
+                const gy = gray[idx + width] - gray[idx - width];
+                // Gradient magnitude
+                gradientSum += Math.sqrt(gx * gx + gy * gy);
+            }
+        }
+        
+        const avgGradient = gradientSum / count;
+
+        // Combine both methods - Laplacian variance is primary, gradient is secondary
+        // Normalize by image intensity to make it more consistent across lighting conditions
+        const normalizedLapVariance = lapVariance / (avgIntensity + 1);
+        const normalizedGradient = avgGradient / (avgIntensity + 1);
+        
+        // Combined score weighted towards Laplacian (more reliable for blur)
+        const combinedScore = (normalizedLapVariance * 0.7 + normalizedGradient * 10 * 0.3);
+        
+        // Scale to a reasonable range (0-200+)
+        return combinedScore * 100;
     }
 }
 

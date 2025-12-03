@@ -289,6 +289,22 @@ export default function MobileCaptureScreen({
                 stableGoodFramesRef.current += 1;
             } else {
                 stableGoodFramesRef.current = 0;
+                
+                // CRITICAL FIX: Immediately abort countdown if conditions are no longer good
+                // This ensures closing eyes or moving away stops the countdown instantly
+                if (countdownIntervalRef.current) {
+                    console.log('[Capture] ❌ Aborting countdown - conditions no longer stable', {
+                        irisDetected: report.irisDetected,
+                        hasCropBox: !!report.irisCropBox,
+                        focus: report.focus.status,
+                        focusLocked: locked,
+                        distance: report.distance.status,
+                        lighting: report.lighting.status
+                    });
+                    clearInterval(countdownIntervalRef.current);
+                    countdownIntervalRef.current = null;
+                    setCountdown(null);
+                }
             }
 
             // Require a few consecutive good frames to avoid flicker
@@ -301,7 +317,7 @@ export default function MobileCaptureScreen({
                 !isCapturing &&
                 !countdownIntervalRef.current
             ) {
-                console.log('[Capture] Starting countdown - stable & close', {
+                console.log('[Capture] ✅ Starting countdown - stable & close', {
                     distance: report.distance,
                     focus: { status: report.focus.status, score: report.focus.score },
                     irisDiameter: report.irisDiameter.toFixed(2),
@@ -321,17 +337,6 @@ export default function MobileCaptureScreen({
                         setCountdown(-1); // Special value to trigger capture
                     }
                 }, 1000);
-            } else if (!isGoodForCountdown && countdown !== null && countdown > 0 && countdownIntervalRef.current) {
-                console.log('[Capture] Aborting countdown - conditions no longer stable', {
-                    distance: report.distance,
-                    centering: report.centering,
-                    lighting: report.lighting
-                });
-                if (countdownIntervalRef.current) {
-                    clearInterval(countdownIntervalRef.current);
-                    countdownIntervalRef.current = null;
-                }
-                setCountdown(null);
             } else if (!isGoodForCountdown && countdown === null && report.irisDetected) {
                 const now = performance.now();
                 if (now - lastBlockedCountdownLogRef.current > 1000) {
@@ -437,8 +442,8 @@ export default function MobileCaptureScreen({
         if (cropY + cropSize > video.videoHeight) cropY = Math.max(0, video.videoHeight - cropSize);
 
         // Compute iris position within crop
+        const in_crop_y = irisY_video - cropY;
         let in_crop_x = irisX_video - cropX;
-        let in_crop_y = irisY_video - cropY;
 
         // Account for horizontal flip (selfie camera)
         in_crop_x = cropSize - in_crop_x;

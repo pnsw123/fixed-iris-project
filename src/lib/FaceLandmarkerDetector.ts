@@ -134,9 +134,11 @@ export class FaceLandmarkerDetector {
                 y: lm.y * height
             }));
 
-            // Get iris center by averaging all iris landmarks (more stable than center alone)
-            const centerX = irisPixels.reduce((s, p) => s + p.x, 0) / irisPixels.length;
-            const centerY = irisPixels.reduce((s, p) => s + p.y, 0) / irisPixels.length;
+            // FIXED: Use MediaPipe's center landmark directly (index 0)
+            // Previously we averaged all 5 points, but this causes offset when eyelids
+            // partially occlude the iris boundary points
+            const centerX = irisPixels[IRIS_LANDMARKS.CENTER].x;
+            const centerY = irisPixels[IRIS_LANDMARKS.CENTER].y;
 
             // Calculate diameter from boundary points
             const top = irisPixels[IRIS_LANDMARKS.TOP].y;
@@ -146,7 +148,10 @@ export class FaceLandmarkerDetector {
 
             const verticalDiameter = Math.abs(bottom - top);
             const horizontalDiameter = Math.abs(right - left);
-            let diameter = (verticalDiameter + horizontalDiameter) / 2;
+            
+            // Use the LARGER of the two diameters to avoid cutting off iris
+            // when eyelids partially occlude vertical extent
+            let diameter = Math.max(verticalDiameter, horizontalDiameter);
 
             // VALIDATION: Iris dimensions should be reasonable, but do not drop detections.
             // We clamp instead of rejecting so the UI can still show a target and ask the user to adjust.

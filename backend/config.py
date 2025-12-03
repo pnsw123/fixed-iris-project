@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     sam_checkpoint: str = "./models/sam_vit_b_01ec64.pth"
     # SAM backbone to use: "auto" (detect from fine-tuned weights), or one of ["vit_b", "vit_l", "vit_h"]
     sam_model_type: str = "auto"
-    esrgan_model: str = "../public/models/realesr-general-x4v3.pth"
+    esrgan_model: str = "./models/realesr-general-x4v3.pth"
 
     # Device
     device: str = "mps"  # mps, cuda, or cpu

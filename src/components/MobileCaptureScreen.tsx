@@ -283,7 +283,6 @@ export default function MobileCaptureScreen({
                 report.focus.status === 'ok' &&
                 locked &&
                 report.distance.status === 'ok' && // Only start countdown when user is close enough
-                report.centering.status !== 'fail' &&
                 report.lighting.status !== 'fail';
 
             if (isGoodForCountdown) {

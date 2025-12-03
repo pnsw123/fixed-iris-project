@@ -315,10 +315,28 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        "app:app",
-        host=settings.host,
-        port=settings.port,
-        reload=settings.reload,
-        log_level=settings.log_level.lower()
-    )
+    # Check for SSL certificates for HTTPS (required for phone connections)
+    cert_dir = os.path.join(os.path.dirname(__file__), '..', '.cert')
+    ssl_keyfile = os.path.join(cert_dir, 'key.pem')
+    ssl_certfile = os.path.join(cert_dir, 'cert.pem')
+
+    if os.path.exists(ssl_keyfile) and os.path.exists(ssl_certfile):
+        print(f"🔒 Starting with HTTPS (certs from {cert_dir})")
+        uvicorn.run(
+            "app:app",
+            host=settings.host,
+            port=settings.port,
+            reload=settings.reload,
+            log_level=settings.log_level.lower(),
+            ssl_keyfile=ssl_keyfile,
+            ssl_certfile=ssl_certfile
+        )
+    else:
+        print(f"⚠️  No SSL certs found at {cert_dir}, starting with HTTP")
+        uvicorn.run(
+            "app:app",
+            host=settings.host,
+            port=settings.port,
+            reload=settings.reload,
+            log_level=settings.log_level.lower()
+        )

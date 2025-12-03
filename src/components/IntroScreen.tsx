@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Eye } from 'lucide-react';
+import ComparisonSlider from '@/components/ComparisonSlider';
 
 interface IntroScreenProps {
     onStart?: () => void;
@@ -71,6 +72,9 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Comparison Slider */}
+                        <ComparisonSlider />
 
                         {/* CTA */}
                         <button

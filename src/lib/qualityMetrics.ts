@@ -190,10 +190,11 @@ export class QualityAnalyzer {
 
         // Convert to 0-100 score (0 = edge, 100 = center)
         const centeringScore = Math.max(0, (1 - centeringRatio) * 100);
+        // VERY RELAXED thresholds - only fail if iris is way off to the edge
         const centeringStatus: 'ok' | 'warn' | 'fail' = 
-            centeringScore >= 60 ? 'ok' : centeringScore >= 40 ? 'warn' : 'fail'; // RELAXED: 70/50 → 60/40
+            centeringScore >= 35 ? 'ok' : centeringScore >= 20 ? 'warn' : 'fail';
         const centeringFeedback = 
-            centeringScore >= 60 ? 'Well centered' : 'Center your eye';
+            centeringScore >= 35 ? 'Well centered' : 'Center your eye';
 
         // 5. Lighting Score (face brightness analysis)
         let rawBrightness = 0;

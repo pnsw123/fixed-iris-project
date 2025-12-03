@@ -161,6 +161,18 @@ class BackendClient {
 }
 
 // Singleton instance
-export const backendClient = new BackendClient(
-  process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
-);
+// Dynamically determine backend URL based on current hostname
+const getBackendUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    // If we're on the phone accessing via IP, use that same IP for backend
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      // We're accessing from phone via IP - use HTTPS on port 8000
+      return `https://${hostname}:8000`;
+    }
+  }
+  // Default for local development
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:8000';
+};
+
+export const backendClient = new BackendClient(getBackendUrl());

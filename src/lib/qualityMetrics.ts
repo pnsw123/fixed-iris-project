@@ -199,6 +199,8 @@ export class QualityAnalyzer {
         }
 
         // 4. Centering Score (distance from frame center)
+        // NOTE: For single-eye capture, the eye will naturally be off-center
+        // We only care that it's reasonably in frame, not perfectly centered
         const frameCenterX = analysisCanvas.width / 2;
         const frameCenterY = analysisCanvas.height / 2;
         const distFromCenter = Math.hypot(smoothedCenterX - frameCenterX, smoothedCenterY - frameCenterY);
@@ -207,11 +209,14 @@ export class QualityAnalyzer {
 
         // Convert to 0-100 score (0 = edge, 100 = center)
         const centeringScore = Math.max(0, (1 - centeringRatio) * 100);
-        // VERY RELAXED thresholds - only fail if iris is way off to the edge
+        
+        // VERY RELAXED for single-eye capture
+        // OK if eye is anywhere in the middle 70% of frame
+        // Only fail if eye is at the very edge
         const centeringStatus: 'ok' | 'warn' | 'fail' = 
-            centeringScore >= 35 ? 'ok' : centeringScore >= 20 ? 'warn' : 'fail';
+            centeringScore >= 20 ? 'ok' : centeringScore >= 10 ? 'warn' : 'fail';
         const centeringFeedback = 
-            centeringScore >= 35 ? 'Well centered' : 'Center your eye';
+            centeringScore >= 20 ? 'Well centered' : 'Center your eye';
 
         // 5. Lighting Score (face brightness analysis)
         let rawBrightness = 0;

@@ -62,6 +62,10 @@ class ArabicNormalizer:
         # Remove copyright symbol and other common OCR artifacts in tribes2
         text = re.sub(r'[©®]', '', text)
         
+        # Remove Private Use Area characters (E000-F8FF)
+        # These are often used for custom glyphs in PDFs
+        text = re.sub(r'[\ue000-\uf8ff]', '', text)
+        
         return text
 
 

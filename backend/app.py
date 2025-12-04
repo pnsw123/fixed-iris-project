@@ -2,6 +2,21 @@
 
 import sys
 import os
+import types
+
+# =============================================================================
+# CRITICAL: Fix torchvision API compatibility BEFORE any other imports
+# basicsr expects functional_tensor.rgb_to_grayscale which was removed in newer torchvision
+# This shim MUST run before realesrgan/basicsr are imported anywhere
+# =============================================================================
+try:
+    from torchvision.transforms import functional as _tv_f
+    if "torchvision.transforms.functional_tensor" not in sys.modules:
+        sys.modules["torchvision.transforms.functional_tensor"] = types.SimpleNamespace(
+            rgb_to_grayscale=_tv_f.rgb_to_grayscale
+        )
+except Exception as e:
+    print(f"Warning: Could not apply torchvision shim: {e}")
 
 # Ensure backend directory is in Python path (ahead of site-packages)
 backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,8 +39,11 @@ from config import settings
 from services.iris_sam_service import IrisSAMService
 from services.esrgan_service import RealESRGANService
 from services.pipeline_service import IrisPipelineService
+from services.tribal_matcher_service import initialize_tribal_matcher, get_tribal_matcher
 from app_utils.image_utils import numpy_to_base64
 from app_utils.validation import validate_image_upload
+from api.tribe_routes import router as tribe_router
+from api.session_routes import router as session_router
 
 # Configure logging
 logging.basicConfig(
@@ -36,8 +54,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Iris Processing API",
-    description="Iris-SAM segmentation + Real-ESRGAN upscaling pipeline",
+    title="Iris Heritage Platform API",
+    description="Iris-SAM segmentation + Real-ESRGAN upscaling + Heritage Card Platform",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -56,12 +74,17 @@ app.add_middleware(
 iris_sam_service: Optional[IrisSAMService] = None
 esrgan_service: Optional[RealESRGANService] = None
 pipeline_service: Optional[IrisPipelineService] = None
+tribal_matcher_service = None
+
+# Include API routers
+app.include_router(tribe_router)
+app.include_router(session_router)
 
 
 @app.on_event("startup")
 async def startup_event():
     """Load models on server startup."""
-    global iris_sam_service, esrgan_service, pipeline_service
+    global iris_sam_service, esrgan_service, pipeline_service, tribal_matcher_service
 
     logger.info("=" * 60)
     logger.info("🚀 Starting Iris Processing Backend")
@@ -90,8 +113,12 @@ async def startup_event():
         logger.info("[Startup] Initializing pipeline...")
         pipeline_service = IrisPipelineService(iris_sam_service, esrgan_service)
 
+        logger.info("[Startup] Loading Tribal Matcher...")
+        tribal_matcher_service = initialize_tribal_matcher()
+        logger.info(f"[Startup] ✅ Tribal Matcher loaded: {len(tribal_matcher_service.main_tribes)} tribes")
+
         logger.info("=" * 60)
-        logger.info("✅ All models loaded successfully!")
+        logger.info("✅ All models and services loaded successfully!")
         logger.info("=" * 60)
 
     except Exception as e:

@@ -7,12 +7,17 @@ import { CaptureData } from './MobileCaptureScreen';
 
 interface ReviewScreenProps {
     captureData: CaptureData;
+    userData?: {
+        firstName: string;
+        lastName: string;
+        tribe: any;
+    };
     onRetake: () => void;
 }
 
 type ViewMode = 'single' | 'comparison';
 
-export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProps) {
+export default function ReviewScreen({ captureData, userData, onRetake }: ReviewScreenProps) {
     const { imageData: irisCrop, irisCoordinates, cropSize, irisRadius } = captureData;
     const [viewMode, setViewMode] = useState<ViewMode>('single');
     const [showOriginal, setShowOriginal] = useState(true);
@@ -84,6 +89,36 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
         link.click();
     };
 
+    const getPrideMessage = () => {
+        if (!userData || !enhancedImage || isEnhancing) return null;
+
+        const tribe = userData.tribe;
+        const name = userData.lastName;
+
+        // Use hierarchy path if available, otherwise construct a simple message
+        const hierarchyText = tribe?.hierarchy_path || tribe?.canonical_name || name;
+
+        return (
+            <div className="mt-8 text-center space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-1000">
+                <p className="text-xs font-mono text-gray-500 uppercase tracking-[0.2em]">
+                    The Pride of
+                </p>
+                <h2 className="text-xl md:text-2xl font-light text-white tracking-wide leading-relaxed px-4">
+                    {hierarchyText}
+                </h2>
+                {tribe && (
+                    <div className="flex items-center justify-center gap-2 mt-2">
+                        <div className="h-px w-8 bg-emerald-900/50"></div>
+                        <p className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider">
+                            Verified Heritage
+                        </p>
+                        <div className="h-px w-8 bg-emerald-900/50"></div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-black flex flex-col">
             {/* Header with Backend Status */}
@@ -112,26 +147,29 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                 <div className="max-w-4xl w-full space-y-8">
                     {/* Image Preview */}
                     {viewMode === 'single' ? (
-                        <div className="bg-gray-900 border border-gray-800 p-8 flex items-center justify-center relative min-h-[400px]">
-                            <img
-                                src={showOriginal ? irisCrop : (enhancedImage || irisCrop)}
-                                alt="Iris capture"
-                                className="max-w-full h-auto"
-                                style={{ imageRendering: showOriginal ? 'auto' : 'crisp-edges' }}
-                            />
-                            
-                            {/* Enhancement Progress Overlay */}
-                            {isEnhancing && (
-                                <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center">
-                                    <div className="text-center space-y-4">
-                                        <Sparkles className="w-12 h-12 text-emerald-500 mx-auto animate-pulse" />
-                                        <div className="space-y-1">
-                                            <p className="text-base font-medium text-white">Processing...</p>
-                                            <p className="text-sm font-mono text-gray-400">Iris-SAM Segmentation + Real-ESRGAN 4x</p>
+                        <div className="flex flex-col items-center">
+                            <div className="bg-gray-900 border border-gray-800 p-8 flex items-center justify-center relative min-h-[400px] w-full">
+                                <img
+                                    src={showOriginal ? irisCrop : (enhancedImage || irisCrop)}
+                                    alt="Iris capture"
+                                    className="max-w-full h-auto"
+                                    style={{ imageRendering: showOriginal ? 'auto' : 'crisp-edges' }}
+                                />
+
+                                {/* Enhancement Progress Overlay */}
+                                {isEnhancing && (
+                                    <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center">
+                                        <div className="text-center space-y-4">
+                                            <Sparkles className="w-12 h-12 text-emerald-500 mx-auto animate-pulse" />
+                                            <div className="space-y-1">
+                                                <p className="text-base font-medium text-white">Processing...</p>
+                                                <p className="text-sm font-mono text-gray-400">Iris-SAM Segmentation + Real-ESRGAN 4x</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
+                            {getPrideMessage()}
                         </div>
                     ) : (
                         /* Side-by-Side Comparison */
@@ -201,7 +239,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                                     <span className="text-gray-500">Total:</span>{' '}
                                     <span className="text-emerald-400">
                                         {((processingMetadata.iris_sam_time_ms || 0) +
-                                          (processingMetadata.esrgan_time_ms || 0))?.toFixed(0)}ms
+                                            (processingMetadata.esrgan_time_ms || 0))?.toFixed(0)}ms
                                     </span>
                                 </div>
                             </div>
@@ -215,7 +253,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                                 {showOriginal ? 'Original Crop' : 'Enhanced (Iris-SAM + ESRGAN)'}
                             </span>
                         )}
-                        
+
                         <div className="flex items-center gap-3 ml-auto">
                             {/* Single View Toggle */}
                             {viewMode === 'single' && enhancedImage && !isEnhancing && (
@@ -226,7 +264,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                                     {showOriginal ? 'View Enhanced' : 'View Original'}
                                 </button>
                             )}
-                            
+
                             {/* Comparison Mode Button */}
                             {enhancedImage && !isEnhancing && (
                                 <button

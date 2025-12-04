@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Enable Turbopack with empty config to silence the webpack warning
   turbopack: {},
-  
+
   async headers() {
     return [
       {

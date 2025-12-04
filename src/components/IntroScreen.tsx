@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { Eye } from 'lucide-react';
-import ComparisonSlider from '@/components/ComparisonSlider';
 
 interface IntroScreenProps {
     onStart?: () => void;
@@ -73,15 +72,12 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
                             </div>
                         </div>
 
-                        {/* Comparison Slider */}
-                        <ComparisonSlider />
-
                         {/* CTA */}
                         <button
-                            onClick={handleStartCamera}
+                            onClick={() => router.push('/instructions')}
                             className="w-full bg-white text-black font-medium text-base py-4 px-6 hover:bg-gray-100 transition-colors"
                         >
-                            Begin Capture
+                            Begin Instructions
                         </button>
 
                         {/* Footer note */}

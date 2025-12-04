@@ -1,0 +1,35 @@
+{
+  "tribes.txt": {
+    "total_lines": 5681,
+    "unique_lines": 2472,
+    "arabic_lines": 2457,
+    "artifact_lines": 2623,
+    "duplicates": 3209,
+    "encoding": "UTF-8",
+    "avg_line_length": 149.26727272727274,
+    "min_line_length": 3,
+    "max_line_length": 1826
+  },
+  "tribes2.txt": {
+    "total_lines": 11060,
+    "unique_lines": 9320,
+    "arabic_lines": 5611,
+    "artifact_lines": 286,
+    "duplicates": 1740,
+    "encoding": "UTF-8",
+    "avg_line_length": 55.7004178408318,
+    "min_line_length": 3,
+    "max_line_length": 176
+  },
+  "tribes2_normalized.txt": {
+    "total_lines": 11060,
+    "unique_lines": 9320,
+    "arabic_lines": 9925,
+    "artifact_lines": 286,
+    "duplicates": 1740,
+    "encoding": "UTF-8",
+    "avg_line_length": 58.39442231075697,
+    "min_line_length": 3,
+    "max_line_length": 180
+  }
+}

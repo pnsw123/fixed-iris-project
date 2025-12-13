@@ -74,20 +74,32 @@ async def match_tribe(request: MatchRequest) -> MatchResponse:
         MatchResponse with tribe data if found, or success=False
     """
     logger.info(f"[TribeRoutes] POST /match - name='{request.name}', threshold={request.confidence_threshold}")
+    print(f"\n🔍 [MATCH DEBUG] Incoming request: name='{request.name}'")
     
     try:
         matcher = get_tribal_matcher()
+        print(f"🔍 [MATCH DEBUG] Matcher has {len(matcher.nodes)} nodes, {len(matcher.variant_index)} variants")
+        
         result = matcher.match(request.name, confidence_threshold=request.confidence_threshold)
         
         if result:
+            result_dict = result.to_dict()
             logger.info(f"[TribeRoutes] ✅ Match found: {result.canonical_name} ({result.confidence}%)")
+            print(f"✅ [MATCH DEBUG] Match found:")
+            print(f"   canonical_name: {result.canonical_name}")
+            print(f"   hierarchy_path: '{result.hierarchy_path}'")
+            print(f"   confidence: {result.confidence}")
+            print(f"   match_type: {result.match_type}")
+            print(f"   Full result_dict: {result_dict}")
+            
             return MatchResponse(
                 success=True,
-                match=result.to_dict(),
+                match=result_dict,
                 message=f"Matched to {result.canonical_name} with {result.confidence}% confidence"
             )
         else:
             logger.info(f"[TribeRoutes] ❌ No match found for: '{request.name}'")
+            print(f"❌ [MATCH DEBUG] No match found for: '{request.name}'")
             return MatchResponse(
                 success=True,  # Request succeeded, just no match
                 match=None,
@@ -139,8 +151,8 @@ async def tribe_service_health():
     
     try:
         matcher = get_tribal_matcher()
-        tribe_count = len(matcher.main_tribes)
-        variant_count = len(matcher.variant_to_canonical)
+        tribe_count = len(matcher.nodes)
+        variant_count = len(matcher.variant_index)
         
         return {
             "status": "healthy",

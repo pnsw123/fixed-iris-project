@@ -76,190 +76,280 @@ class TribalMatcherService:
     def __init__(self, tribe_brain_path: str = None):
         """
         Initialize the matcher with the tribe database.
-        
-        Args:
-            tribe_brain_path: Path to tribe_brain.json. If None, uses default location.
         """
         logger.info("[TribalMatcher] Initializing service...")
         start_time = datetime.now()
         
-        if tribe_brain_path is None:
-            # Try to find tribe_brain.json relative to backend directory
-            backend_dir = Path(__file__).parent.parent.parent
-            tribe_brain_path = backend_dir / 'tribe_brain.json'
-            logger.info(f"[TribalMatcher] Using default path: {tribe_brain_path}")
+        backend_dir = Path(__file__).parent.parent
         
+        # Load tribe_brain_v3.json
+        if tribe_brain_path is None:
+            tribe_brain_path = backend_dir / 'tribe_brain_v3.json'
+        
+        self.nodes = {}
+        self.normalized_index = {}  # normalized_name -> original_name (canonical)
+        self.variant_index = {}      # normalized_variant -> original_name (canonical)
+        
+        # Load new extraction if available
         try:
             with open(tribe_brain_path, 'r', encoding='utf-8') as f:
-                self.db = json.load(f)
-            logger.info(f"[TribalMatcher] ✅ Loaded tribe_brain.json successfully")
+                data = json.load(f)
+            
+            if 'tribes' in data:
+                self.nodes = data['tribes']
+            else:
+                self.nodes = data
+            
+            # Ensure all nodes have IDs
+            for key, node in self.nodes.items():
+                if 'id' not in node:
+                    node['id'] = key
+            
+            logger.info(f"[TribalMatcher] ✅ Loaded tribe_brain_v3: {len(self.nodes)} tribes")
         except FileNotFoundError:
-            logger.error(f"[TribalMatcher] ❌ tribe_brain.json not found at {tribe_brain_path}")
-            raise
-        except json.JSONDecodeError as e:
-            logger.error(f"[TribalMatcher] ❌ Invalid JSON in tribe_brain.json: {e}")
-            raise
+            logger.warning(f"[TribalMatcher] New extraction not found at {tribe_brain_path}")
         
-        # Get tribes (supports both old and new schema)
-        self.main_tribes = self.db.get('tribes', self.db.get('main_tribes', {}))
-        self.search_index = self.db.get('index', self.db.get('search_index', {}))
-        
-        logger.info(f"[TribalMatcher] Found {len(self.main_tribes)} main tribes")
-        logger.info(f"[TribalMatcher] Found {len(self.search_index)} indexed entries")
-        
-        # Build variant lookup table
-        self.variant_to_canonical: Dict[str, str] = {}
-        self._build_variant_table()
+        # Build indices
+        self._build_indices()
         
         elapsed = (datetime.now() - start_time).total_seconds()
         logger.info(f"[TribalMatcher] ✅ Initialization complete in {elapsed:.2f}s")
-        logger.info(f"[TribalMatcher] Total variants indexed: {len(self.variant_to_canonical)}")
-    
-    # =========================================================================
-    # LAYER 1: Input Normalization
-    # =========================================================================
-    
+
+    def _build_indices(self):
+        """Build normalized indices for fast lookup."""
+        count = 0
+        for original_name, node in self.nodes.items():
+            # 1. Index Canonical Name
+            normalized = self.normalize_arabic_name(original_name)
+            self.normalized_index[normalized] = original_name
+            
+            # 2. Index Variants
+            # Generate variants from the name
+            variants = self._generate_variants(original_name)
+            
+            # Add any pre-existing variants from node data
+            if 'variants' in node:
+                variants.extend(node['variants'])
+                
+            for variant in set(variants):
+                norm_variant = self.normalize_arabic_name(variant)
+                self.variant_index[norm_variant] = original_name
+            
+            count += 1
+        
+        logger.info(f"[TribalMatcher] Built index: {len(self.normalized_index)} normalized names, {len(self.variant_index)} variants")
+
     @staticmethod
     @lru_cache(maxsize=10000)
-    def normalize_input(user_input: str) -> str:
+    def normalize_arabic_name(text: str) -> str:
         """
-        Normalize user input by removing ال and nisba suffixes.
-        
-        LRU cached for performance on repeated queries.
-        
-        Steps:
-        1. NFKC normalization (handle presentation forms)
-        2. Remove definite article ال from start
-        3. Remove nisba suffixes from end
-        4. Character normalization (alef variants, etc.)
-        
-        Examples:
-            البلوي → بل
-            الهاشمي → هاشم
-            الغباني → غبان
+        PRODUCTION-GRADE normalization function.
+        Handles: letter spacing, Al- removal, alef variants, nisba suffixes.
         """
-        text = user_input.strip()
         if not text:
             return ""
         
-        # Step 1: NFKC normalization
+        # Fix letter spacing first (OCR artifacts)
+        text = TribalMatcherService._fix_letter_spacing(text)
+        
+        # Unicode normalization
         text = unicodedata.normalize('NFKC', text)
         
-        # Step 2: Remove ال prefix
-        if text.startswith('ال'):
-            text = text[2:]
-        
-        # Step 3: Remove nisba suffixes (order matters - longer first)
-        nisba_suffixes = ['انية', 'اني', 'ية', 'ي']
-        for suffix in nisba_suffixes:
-            if text.endswith(suffix) and len(text) > len(suffix) + 1:
-                text = text[:-len(suffix)]
-                break
-        
-        # Step 4: Character normalization
-        text = TribalMatcherService._normalize_arabic_static(text)
-        
-        return text
-    
-    @staticmethod
-    def _normalize_arabic_static(text: str) -> str:
-        """Normalize Arabic character variants (static for caching)."""
-        # Alef variants → ا
-        text = re.sub('[إأٱآا]', 'ا', text)
-        
-        # Ya / Alef maksura
-        text = re.sub('ى', 'ي', text)
-        
-        # Ta marbuta → ha
-        text = re.sub('ة', 'ه', text)
-        
+        # Special case: آل (Aal) - Check BEFORE Alef normalization
+        # If it starts with آل, we treat it as "Al" but preserve it (don't strip it later)
+        is_aal = False
+        if text.startswith('آل '): # Aal followed by space usually
+             is_aal = True
+        elif text.startswith('آل'):
+             is_aal = True
+
         # Remove diacritics
-        text = re.sub('[\u064B-\u0652]', '', text)
+        text = re.sub(r'[\u064B-\u065F\u0670]', '', text)
         
         # Remove tatweel
-        text = re.sub('ـ', '', text)
+        text = text.replace('\u0640', '')
+        
+        # Normalize Alef variants: أ إ آ ٱ -> ا
+        text = re.sub(r'[أإآٱ]', 'ا', text)
+        
+        # Normalize Teh Marbuta: ة → ه
+        text = text.replace('ة', 'ه')
+        
+        # Normalize Ya: ى → ي
+        text = text.replace('ى', 'ي')
+        
+        if is_aal:
+             # Ensure it starts with 'ال' after normalization
+             if not text.startswith('ال'):
+                 text = 'ال' + text[2:]
+             return text # Don't remove this ال
+        
+        # Remove definite article "ال"
+        text = re.sub(r'^ال+', '', text)
+        
+        # Remove common prefixes: و (Wa-) only. 
+        # Removing 'ب' (Bi-) and 'ف' (Fa-) is too aggressive for names like 'بلي', 'فهد'.
+        if text.startswith('و') and len(text) > 3:
+            text = text[1:]
+        
+        # Remove nisba suffixes: ي، ية، ون، ين
+        # Note: ة is already ه, so we check for يه
+        text = re.sub(r'(?:ي|يه|ون|ين)$', '', text)
+        
+        # Clean whitespace
+        text = ' '.join(text.split())
+        
+        return text.strip()
+
+    @staticmethod
+    def _fix_letter_spacing(text: str) -> str:
+        """Remove spaces between single Arabic letters (OCR fix)"""
+        # Detect if this looks like letter-spaced OCR output
+        if not TribalMatcherService._has_letter_spacing(text):
+            return text
+        
+        # NFKC normalization first
+        text = unicodedata.normalize('NFKC', text)
+        
+        # Remove spaces between single Arabic letters
+        pattern = r'(?<=[\u0600-\u06FF])\s+(?=[\u0600-\u06FF](?:\s|$))'
+        text = re.sub(pattern, '', text)
         
         return text
-    
-    # =========================================================================
-    # LAYER 2: Variant Pre-computation
-    # =========================================================================
-    
-    def _build_variant_table(self):
+
+    @staticmethod
+    def _has_letter_spacing(text: str) -> bool:
+        """Quick check: does text have letter-level spacing?"""
+        # Use lookarounds to avoid consuming characters so we can count overlapping patterns
+        # e.g. "ح ر ب" has 2 spaces, both between letters
+        matches = re.findall(r'(?<=[\u0600-\u06FF])\s+(?=[\u0600-\u06FF])', text)
+        # Relaxed threshold: 2 spaces is enough for 3-letter words like "ح ر ب"
+        return len(matches) >= 2
+
+    def _generate_variants(self, name: str) -> List[str]:
+        """Generate common spelling variants."""
+        variants = set()
+        variants.add(name)
+        
+        # With/without ال
+        if name.startswith('ال'):
+            variants.add(name[2:])
+        else:
+            variants.add('ال' + name)
+        
+        # With nisba suffixes
+        variants.add(name + 'ي')
+        variants.add(name + 'ية')
+        
+        return list(variants)
+
+    def match(self, user_input: str, confidence_threshold: int = 70) -> Optional[TribeMatch]:
         """
-        Pre-compute all variant forms for each tribe.
-        
-        For each tribe, generate:
-        - Base form: بلي
-        - With ال: البلي
-        - Nisba masculine: بلوي, البلوي
-        - Nisba feminine: بلوية, البلوية
+        Match user input to tribe using 3-layer strategy.
         """
-        logger.debug("[TribalMatcher] Building variant lookup table...")
+        logger.info(f"[TribalMatcher] Matching: '{user_input}'")
         
-        for tribe_name in self.main_tribes:
-            variants = self._generate_variants(tribe_name)
-            for variant in variants:
-                normalized = self.normalize_input(variant)
-                if normalized and normalized not in self.variant_to_canonical:
-                    self.variant_to_canonical[normalized] = tribe_name
+        if not user_input or len(user_input) < 2:
+            return None
+
+        # If input contains spaces (full name), try the full name first, then last word
+        words = user_input.strip().split()
+        inputs_to_try = [user_input]
+        if len(words) > 1:
+            inputs_to_try.append(words[-1])
         
-        # Also add subfamilies from search index
-        for subfamily_name in self.search_index:
-            normalized = self.normalize_input(subfamily_name)
-            if normalized and normalized not in self.variant_to_canonical:
-                self.variant_to_canonical[normalized] = subfamily_name
+        for input_to_match in inputs_to_try:
+            result = self._match_single(input_to_match, confidence_threshold)
+            if result:
+                return result
         
-        logger.debug(f"[TribalMatcher] Variant table built with {len(self.variant_to_canonical)} entries")
-    
-    def _generate_variants(self, tribe_name: str) -> List[str]:
-        """
-        Generate all possible written forms of a tribe name.
+        return None
+
+    def _match_single(self, user_input: str, confidence_threshold: int = 70) -> Optional[TribeMatch]:
+        """Match a single input string."""
+        # Normalize input
+        normalized_input = self.normalize_arabic_name(user_input)
         
-        Rules:
-        - Nisba adds ي (masculine) or ية (feminine)
-        - Some tribes use اني/انية for nisba
-        - Some tribes insert و before nisba (بلي → بلوي)
-        - ال can be prefixed to any form
-        """
-        variants = [tribe_name]
+        matched_node_id = None
+        match_type = MatchType.NO_MATCH
+        confidence = 0
+        matched_variant = user_input
         
-        # Clean name for variant generation
-        base = tribe_name
-        if base.startswith('ال'):
-            base = base[2:]
+        # Layer 1: Exact Match (Normalized)
+        if normalized_input in self.normalized_index:
+            original_name = self.normalized_index[normalized_input]
+            matched_node_id = self.nodes[original_name]['id']
+            match_type = MatchType.EXACT
+            confidence = 100
+            matched_variant = original_name
+            
+        # Layer 2: Variant Match (Normalized)
+        elif normalized_input in self.variant_index:
+            original_name = self.variant_index[normalized_input]
+            matched_node_id = self.nodes[original_name]['id']
+            match_type = MatchType.VARIANT
+            confidence = 95
+            matched_variant = original_name
+            
+        # Layer 3: Fuzzy Match (Levenshtein)
+        else:
+            best_score = 0
+            best_name = None
+            
+            # Check against normalized index
+            for norm_name, original_name in self.normalized_index.items():
+                score = self._similarity_score(normalized_input, norm_name)
+                if score > best_score and score >= (confidence_threshold / 100.0):
+                    best_score = score
+                    best_name = original_name
+            
+            if best_name:
+                matched_node_id = self.nodes[best_name]['id']
+                confidence = int(best_score * 100)
+                match_type = MatchType.FUZZY_HIGH if best_score >= 0.9 else MatchType.FUZZY_MED
+                matched_variant = best_name
+
+        if matched_node_id:
+            node = self.nodes[matched_node_id]
+            
+            # Construct hierarchy path
+            path_list = self._get_hierarchy_path(node)
+            hierarchy_path = " > ".join(path_list)
+            
+            return TribeMatch(
+                tribe_id=node.get('id'),
+                canonical_name=node.get('name_ar'),
+                confidence=confidence,
+                match_type=match_type,
+                matched_variant=matched_variant,
+                hierarchy_path=hierarchy_path,
+                origin="",
+                description=node.get('source_text', ''),
+                subfamilies=[]
+            )
+            
+        return None
+
+    def _get_hierarchy_path(self, node: dict) -> List[str]:
+        """Get full hierarchy path list."""
+        path = [node.get('name_ar')]
+        current_node = node
         
-        # Generate without ال
-        variants.append(base)
-        
-        # With ال
-        variants.append('ال' + base)
-        
-        # Nisba forms (apply to base)
-        # Standard nisba: add ي/ية
-        nisba_m = base + 'ي'
-        nisba_f = base + 'ية'
-        variants.extend([nisba_m, nisba_f, 'ال' + nisba_m, 'ال' + nisba_f])
-        
-        # Nisba with و insertion (common pattern: بلي → بلوي)
-        # Remove trailing ي if present, then add وي/وية
-        if base.endswith('ي') or base.endswith('ى'):
-            base_stripped = base[:-1]
-            nisba_m_waw = base_stripped + 'وي'
-            nisba_f_waw = base_stripped + 'وية'
-            variants.extend([nisba_m_waw, nisba_f_waw, 'ال' + nisba_m_waw, 'ال' + nisba_f_waw])
-        
-        # Extended nisba for some names: add اني/انية
-        nisba_m_ext = base + 'اني'
-        nisba_f_ext = base + 'انية'
-        variants.extend([nisba_m_ext, nisba_f_ext, 'ال' + nisba_m_ext, 'ال' + nisba_f_ext])
-        
-        return variants
-    
-    # =========================================================================
-    # LAYER 3: Fuzzy Matching
-    # =========================================================================
-    
+        # Traverse up to 5 levels to prevent infinite loops
+        for _ in range(5):
+            parent_name = current_node.get('parent')
+            if not parent_name or parent_name not in self.nodes:
+                break
+            
+            # Avoid cycles
+            if parent_name in path:
+                break
+                
+            path.insert(0, parent_name)
+            current_node = self.nodes[parent_name]
+            
+        return path
+
     @staticmethod
     def _levenshtein_distance(s1: str, s2: str) -> int:
         """Calculate Levenshtein (edit) distance between two strings."""
@@ -290,235 +380,12 @@ class TribalMatcherService:
         distance = TribalMatcherService._levenshtein_distance(s1, s2)
         max_len = max(len(s1), len(s2))
         return 1.0 - (distance / max_len)
-    
-    def _fuzzy_match(self, normalized_input: str, threshold: float = 0.85) -> Optional[Tuple[str, str, float]]:
-        """
-        Find best fuzzy match for normalized input.
-        
-        Returns:
-            Tuple of (canonical_name, matched_variant, similarity_score) if match found, else None
-        """
-        best_match = None
-        best_variant = None
-        best_score = 0.0
-        
-        for normalized_variant, canonical in self.variant_to_canonical.items():
-            score = self._similarity_score(normalized_input, normalized_variant)
-            if score > best_score and score >= threshold:
-                best_score = score
-                best_match = canonical
-                best_variant = normalized_variant
-        
-        if best_match:
-            return (best_match, best_variant, best_score)
-        return None
-    
-    # =========================================================================
-    # PUBLIC API
-    # =========================================================================
 
-    def _get_hierarchy_path(self, name: str) -> str:
-        """
-        Get the full hierarchy path for a tribe/subfamily name.
-        
-        Always looks up in search_index first since it contains the proper
-        path array (e.g., ['عنزة', 'آل جعفر'] for a subfamily).
-        
-        Args:
-            name: The canonical tribe or subfamily name
-            
-        Returns:
-            Formatted hierarchy string like "عنزة > آل جعفر"
-        """
-        # First check search_index - it has the authoritative path data
-        if name in self.search_index:
-            index_data = self.search_index[name]
-            path = index_data.get('path', [])
-            if isinstance(path, list) and path:
-                return " > ".join(path)
-        
-        # Fallback: check main_tribes
-        if name in self.main_tribes:
-            # Main tribes are roots, so path is just the name itself
-            return name
-        
-        # Final fallback
-        return name
-
-    def match(self, user_input: str, confidence_threshold: int = 70) -> Optional[TribeMatch]:
-        """
-        Match user input to a tribe in the database.
-        
-        Args:
-            user_input: User's last name (Arabic or transliterated)
-            confidence_threshold: Minimum acceptable confidence (0-100)
-        
-        Returns:
-            TribeMatch object or None if no match found
-        """
-        logger.info(f"[TribalMatcher] Matching: '{user_input}'")
-        
-        if not user_input or len(user_input) < 2:
-            logger.warning(f"[TribalMatcher] Input too short: '{user_input}'")
-            return None
-
-        # Step 1: Try exact match (user typed canonical name)
-        if user_input in self.main_tribes:
-            tribe_data = self.main_tribes[user_input]
-            hierarchy_path = self._get_hierarchy_path(user_input)
-            logger.info(f"[TribalMatcher] ✅ EXACT match: '{user_input}' -> path: '{hierarchy_path}'")
-            return TribeMatch(
-                tribe_id=user_input,
-                canonical_name=user_input,
-                confidence=100,
-                match_type=MatchType.EXACT,
-                matched_variant=user_input,
-                hierarchy_path=hierarchy_path,
-                origin=tribe_data.get('origin', ''),
-                description=tribe_data.get('description', ''),
-                subfamilies=tribe_data.get('subfamilies', [])
-            )
-        
-        if user_input in self.search_index:
-            search_data = self.search_index[user_input]
-            hierarchy_path = self._get_hierarchy_path(user_input)
-            # Get additional data from main_tribe if this is a subfamily
-            main_tribe_name = search_data.get('main_tribe', '')
-            main_tribe_data = self.main_tribes.get(main_tribe_name, {})
-            logger.info(f"[TribalMatcher] ✅ EXACT match in index: '{user_input}' -> path: '{hierarchy_path}'")
-            return TribeMatch(
-                tribe_id=user_input,
-                canonical_name=user_input,
-                confidence=100,
-                match_type=MatchType.EXACT,
-                matched_variant=user_input,
-                hierarchy_path=hierarchy_path,
-                origin=main_tribe_data.get('origin', ''),
-                description=main_tribe_data.get('description', ''),
-                subfamilies=[]
-            )
-        
-        # Step 2: Normalize and try variant lookup
-        normalized = self.normalize_input(user_input)
-        logger.debug(f"[TribalMatcher] Normalized input: '{user_input}' → '{normalized}'")
-        
-        if normalized in self.variant_to_canonical:
-            canonical = self.variant_to_canonical[normalized]
-            hierarchy_path = self._get_hierarchy_path(canonical)
-            
-            # Get tribe data for additional fields
-            tribe_data = self.main_tribes.get(canonical, {})
-            if not tribe_data:
-                # It's a subfamily - get main tribe data for origin/description
-                index_data = self.search_index.get(canonical, {})
-                main_tribe_name = index_data.get('main_tribe', '')
-                tribe_data = self.main_tribes.get(main_tribe_name, {})
-            
-            logger.info(f"[TribalMatcher] ✅ VARIANT match: '{user_input}' → '{canonical}' -> path: '{hierarchy_path}'")
-            return TribeMatch(
-                tribe_id=canonical,
-                canonical_name=canonical,
-                confidence=95,
-                match_type=MatchType.VARIANT,
-                matched_variant=normalized,
-                hierarchy_path=hierarchy_path,
-                origin=tribe_data.get('origin', '') if isinstance(tribe_data, dict) else '',
-                description=tribe_data.get('description', '') if isinstance(tribe_data, dict) else '',
-                subfamilies=tribe_data.get('subfamilies', []) if isinstance(tribe_data, dict) else []
-            )
-        
-        # Step 3: Fuzzy matching (safety net)
-        fuzzy_result = self._fuzzy_match(normalized, threshold=confidence_threshold / 100.0)
-        if fuzzy_result:
-            canonical, matched_variant, score = fuzzy_result
-            confidence = int(score * 100)
-            
-            if confidence >= confidence_threshold:
-                hierarchy_path = self._get_hierarchy_path(canonical)
-                
-                # Get tribe data for additional fields
-                tribe_data = self.main_tribes.get(canonical, {})
-                if not tribe_data:
-                    # It's a subfamily - get main tribe data for origin/description
-                    index_data = self.search_index.get(canonical, {})
-                    main_tribe_name = index_data.get('main_tribe', '')
-                    tribe_data = self.main_tribes.get(main_tribe_name, {})
-                
-                match_type = MatchType.FUZZY_HIGH if score >= 0.90 else MatchType.FUZZY_MED
-                logger.info(f"[TribalMatcher] ✅ FUZZY match ({confidence}%): '{user_input}' → '{canonical}' -> path: '{hierarchy_path}'")
-                
-                return TribeMatch(
-                    tribe_id=canonical,
-                    canonical_name=canonical,
-                    confidence=confidence,
-                    match_type=match_type,
-                    matched_variant=matched_variant,
-                    hierarchy_path=hierarchy_path,
-                    origin=tribe_data.get('origin', '') if isinstance(tribe_data, dict) else '',
-                    description=tribe_data.get('description', '') if isinstance(tribe_data, dict) else '',
-                    subfamilies=tribe_data.get('subfamilies', []) if isinstance(tribe_data, dict) else []
-                )
-        
-        logger.info(f"[TribalMatcher] ❌ No match found for: '{user_input}'")
-        return None
-    
     def search(self, query: str, limit: int = 10) -> List[TribeMatch]:
-        """
-        Search for tribes matching query (prefix search + fuzzy).
-        
-        Args:
-            query: Search query string
-            limit: Maximum number of results to return
-        
-        Returns:
-            List of TribeMatch objects sorted by confidence (descending)
-        """
-        logger.info(f"[TribalMatcher] Searching: '{query}' (limit={limit})")
-        
-        if not query or len(query) < 2:
-            logger.warning(f"[TribalMatcher] Query too short: '{query}'")
-            return []
-        
-        results = []
-        normalized_query = self.normalize_input(query)
-        logger.debug(f"[TribalMatcher] Normalized query: '{query}' → '{normalized_query}'")
-        
-        # Prefix matching
-        for variant, canonical in self.variant_to_canonical.items():
-            if variant.startswith(normalized_query):
-                hierarchy_path = self._get_hierarchy_path(canonical)
-                
-                # Get tribe data for additional fields
-                tribe_data = self.main_tribes.get(canonical, {})
-                if not tribe_data:
-                    index_data = self.search_index.get(canonical, {})
-                    main_tribe_name = index_data.get('main_tribe', '')
-                    tribe_data = self.main_tribes.get(main_tribe_name, {})
-                
-                results.append(TribeMatch(
-                    tribe_id=canonical,
-                    canonical_name=canonical,
-                    confidence=90,
-                    match_type=MatchType.VARIANT,
-                    matched_variant=variant,
-                    hierarchy_path=hierarchy_path,
-                    origin=tribe_data.get('origin', '') if isinstance(tribe_data, dict) else '',
-                    description=tribe_data.get('description', '') if isinstance(tribe_data, dict) else '',
-                    subfamilies=tribe_data.get('subfamilies', []) if isinstance(tribe_data, dict) else []
-                ))
-        
-        # Sort by confidence and deduplicate
-        seen = set()
-        unique_results = []
-        for r in sorted(results, key=lambda x: -x.confidence):
-            if r.canonical_name not in seen:
-                seen.add(r.canonical_name)
-                unique_results.append(r)
-        
-        final_results = unique_results[:limit]
-        logger.info(f"[TribalMatcher] ✅ Search returned {len(final_results)} results")
-        
-        return final_results
+        """Search for tribes matching query."""
+        # Reuse match logic for single result, but could be expanded for multiple
+        match = self.match(query)
+        return [match] if match else []
 
 
 # =============================================================================

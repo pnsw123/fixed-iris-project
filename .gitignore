@@ -52,3 +52,17 @@ public/test_iris_sharp.png
 /../110/
 /../HTML/
 /../Project/
+
+# Tribal extraction output
+tribal_extraction_output/
+
+# Python cache
+scripts/extraction/__pycache__/
+scripts/extraction/*.pyc
+
+# Test cache
+.pytest_cache/
+*.pytest_cache
+
+# Environment
+anthropic_api_key.txt

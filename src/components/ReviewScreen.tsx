@@ -90,13 +90,27 @@ export default function ReviewScreen({ captureData, userData, onRetake }: Review
     };
 
     const getPrideMessage = () => {
-        if (!userData || !enhancedImage || isEnhancing) return null;
+        console.log('[ReviewScreen] 🔍 getPrideMessage called');
+        console.log('[ReviewScreen] userData:', JSON.stringify(userData, null, 2));
+        console.log('[ReviewScreen] enhancedImage exists:', !!enhancedImage);
+        console.log('[ReviewScreen] isEnhancing:', isEnhancing);
+
+        if (!userData || !enhancedImage || isEnhancing) {
+            console.log('[ReviewScreen] ⚠️ Returning null - conditions not met');
+            return null;
+        }
 
         const tribe = userData.tribe;
         const name = userData.lastName;
 
+        console.log('[ReviewScreen] 📍 tribe object:', JSON.stringify(tribe, null, 2));
+        console.log('[ReviewScreen] 📍 tribe?.hierarchy_path:', tribe?.hierarchy_path);
+        console.log('[ReviewScreen] 📍 tribe?.canonical_name:', tribe?.canonical_name);
+        console.log('[ReviewScreen] 📍 lastName:', name);
+
         // Use hierarchy path if available, otherwise construct a simple message
         const hierarchyText = tribe?.hierarchy_path || tribe?.canonical_name || name;
+        console.log('[ReviewScreen] ✅ Final hierarchyText:', hierarchyText);
 
         return (
             <div className="mt-8 text-center space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-1000">
@@ -121,6 +135,17 @@ export default function ReviewScreen({ captureData, userData, onRetake }: Review
 
     return (
         <div className="min-h-screen bg-black flex flex-col">
+            {/* DEBUG PANEL - Remove after fixing */}
+            <div className="bg-red-900/50 border border-red-500 p-3 text-xs font-mono text-white overflow-auto max-h-40">
+                <p className="text-red-400 font-bold mb-1">🔧 DEBUG INFO:</p>
+                <p>userData exists: {userData ? 'YES' : 'NO'}</p>
+                <p>firstName: {userData?.firstName || 'null'}</p>
+                <p>lastName: {userData?.lastName || 'null'}</p>
+                <p>tribe exists: {userData?.tribe ? 'YES' : 'NO'}</p>
+                <p>hierarchy_path: {userData?.tribe?.hierarchy_path || 'null'}</p>
+                <p>canonical_name: {userData?.tribe?.canonical_name || 'null'}</p>
+            </div>
+
             {/* Header with Backend Status */}
             <div className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
                 <h1 className="text-sm font-mono text-gray-400 tracking-wider">IRIS CAPTURE REVIEW</h1>

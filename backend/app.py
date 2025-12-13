@@ -115,7 +115,7 @@ async def startup_event():
 
         logger.info("[Startup] Loading Tribal Matcher...")
         tribal_matcher_service = initialize_tribal_matcher()
-        logger.info(f"[Startup] ✅ Tribal Matcher loaded: {len(tribal_matcher_service.main_tribes)} tribes")
+        logger.info(f"[Startup] ✅ Tribal Matcher loaded: {len(tribal_matcher_service.nodes)} tribes")
 
         logger.info("=" * 60)
         logger.info("✅ All models and services loaded successfully!")

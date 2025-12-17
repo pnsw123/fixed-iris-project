@@ -190,14 +190,18 @@ class IrisSAMService:
                 mask_soft = cv2.GaussianBlur(mask_float, (3, 3), 0.8)
                 mask = np.clip(mask_soft, 0, 255).astype(np.uint8)
 
-                # Apply mask to image
+                # Apply mask to image - create RGBA with transparent background
                 mask_norm = mask.astype(np.float32) / 255.0
                 mask_3ch = np.stack([mask_norm] * 3, axis=2)
-                clean_iris = (image.astype(np.float32) * mask_3ch).astype(np.uint8)
+                
+                # Create RGBA image (RGB from original, Alpha from mask)
+                clean_iris = np.zeros((h, w, 4), dtype=np.uint8)
+                clean_iris[:, :, :3] = (image.astype(np.float32) * mask_3ch).astype(np.uint8)  # RGB
+                clean_iris[:, :, 3] = mask  # Alpha channel = mask
 
                 quality_score = best_score
 
-                print(f"[IrisSAM] ✅ Segmentation complete (quality: {quality_score:.2f})")
+                print(f"[IrisSAM] ✅ Segmentation complete (quality: {quality_score:.2f}, output: RGBA)")
 
                 return mask, clean_iris, quality_score
 

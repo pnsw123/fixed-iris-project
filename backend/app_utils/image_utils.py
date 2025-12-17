@@ -19,10 +19,13 @@ def numpy_to_base64(img_array: np.ndarray, format: str = 'PNG') -> str:
     Returns:
         Base64 data URL string (e.g., "data:image/png;base64,...")
     """
-    # Handle grayscale vs RGB
+    # Handle grayscale vs RGB vs RGBA
     if len(img_array.shape) == 2:
         # Grayscale
         img = Image.fromarray(img_array, mode='L')
+    elif img_array.shape[2] == 4:
+        # RGBA (transparent)
+        img = Image.fromarray(img_array.astype(np.uint8), mode='RGBA')
     else:
         # RGB
         img = Image.fromarray(img_array.astype(np.uint8), mode='RGB')
@@ -93,3 +96,111 @@ def resize_image(
     padded[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
 
     return padded, scale
+
+
+def add_watermark(img_array: np.ndarray, text: str = "EYEDENTITY") -> np.ndarray:
+    """
+    Add a single centered semi-transparent watermark using layer composition.
+    This ensures true transparency.
+    """
+    from PIL import ImageDraw, ImageFont
+    
+    h, w = img_array.shape[:2]
+    
+    # 1. Ensure Base Image is RGBA
+    if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+        base = Image.fromarray(img_array.astype(np.uint8), mode='RGBA')
+    else:
+        base = Image.fromarray(img_array.astype(np.uint8), mode='RGB')
+        base = base.convert('RGBA')
+    
+    # 2. Create a separate transparent layer for text
+    txt_layer = Image.new('RGBA', base.size, (255, 255, 255, 0))
+    draw = ImageDraw.Draw(txt_layer)
+    
+    # 3. Font Config
+    # Make it even smaller: 1/8 of width for better fit
+    font_size = max(w // 8, 10)
+    
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+    except:
+        try:
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except:
+            font = ImageFont.load_default()
+    
+    # 4. Measure Text to Center
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    
+    x = (w - text_w) // 2
+    y = (h - text_h) // 2
+    
+    # 5. Draw Text onto Transparent Layer
+    # White text with VERY low alpha (50/255 ~= 20%)
+    draw.text((x, y), text, font=font, fill=(255, 255, 255, 50))
+    
+    # 6. Composite the text layer over the base image
+    # This renders the semi-transparent pixels correctly
+    watermarked = Image.alpha_composite(base, txt_layer)
+    
+    return np.array(watermarked)
+
+
+def create_preview(img_array: np.ndarray, max_size: int = 150) -> np.ndarray:
+    """
+    Create a very low-quality preview.
+    Uses pixelation and color quantization to degrade quality.
+    """
+    from PIL import ImageFilter
+    
+    h, w = img_array.shape[:2]
+    
+    # 1. Calculate extremely small size (max 150px)
+    if h > w:
+        new_h = max_size
+        new_w = int(w * (max_size / h))
+    else:
+        new_w = max_size
+        new_h = int(h * (max_size / w))
+    
+    # Ensure sane minimum
+    new_w = max(new_w, 64)
+    new_h = max(new_h, 64)
+    
+    # 2. Load Image
+    if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+        img = Image.fromarray(img_array.astype(np.uint8), mode='RGBA')
+    else:
+        img = Image.fromarray(img_array.astype(np.uint8), mode='RGB')
+    
+    # 3. Resize Down (Bilinear is usually blurry, Nearest is pixelated)
+    # Using Bilinear to get it small
+    preview = img.resize((new_w, new_h), Image.Resampling.BILINEAR)
+    
+    # 4. Apply Blur
+    preview = preview.filter(ImageFilter.GaussianBlur(radius=1.5))
+    
+    # 5. Quantize Colors (Reduces color depth -> looks lower quality/gif-like)
+    # We must convert to P (palette, quantized) then back to RGBA
+    # This introduces dithering/banding artifacts
+    if preview.mode == 'RGBA':
+        # Split alpha, quantize RGB, put alpha back
+        alpha = preview.split()[3]
+        rgb = preview.convert('RGB').quantize(colors=32)
+        preview = rgb.convert('RGBA')
+        preview.putalpha(alpha)
+    else:
+        preview = preview.quantize(colors=32).convert('RGB')
+
+    
+    preview_array = np.array(preview)
+    
+    # 6. Add Watermark to the degraded image
+    watermarked = add_watermark(preview_array)
+    
+    print(f"[Preview] Created degraded {new_w}x{new_h} preview (quantized+blurred)")
+    
+    return watermarked

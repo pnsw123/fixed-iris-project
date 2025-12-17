@@ -59,6 +59,8 @@ tribal_extraction_output/
 # Python cache
 scripts/extraction/__pycache__/
 scripts/extraction/*.pyc
+**/__pycache__/
+*.pyc
 
 # Test cache
 .pytest_cache/

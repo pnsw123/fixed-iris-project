@@ -1,55 +1,0 @@
-
-======================================================================
-🌙 PHASE 10: OVERNIGHT OCR-ONLY REBUILD
-======================================================================
-   Started: 2025-12-13 03:58:36.668257
-   Model: gemini-2.5-flash
-   Workers: 30, RPS: 10
-
-======================================================================
-📖 PHASE 10a: EXTRACT ENTITIES FROM OCR
-======================================================================
-   Total pages: 10,966
-   Already processed: 2,893
-   Remaining: 8,073
-   [100/8,073] entities=41 1.0/s ETA=137.6min   [200/8,073] entities=41 1.1/s ETA=119.8min   [300/8,073] entities=41 1.1/s ETA=114.6min   [400/8,073] entities=69 1.2/s ETA=106.6min   [500/8,073] entities=198 1.3/s ETA=99.3min   💾 Checkpoint saved: 10a
-   [600/8,073] entities=294 1.3/s ETA=93.7min   [700/8,073] entities=380 1.3/s ETA=94.4min   [800/8,073] entities=530 1.4/s ETA=89.1min   [900/8,073] entities=651 1.4/s ETA=85.2min   [1,000/8,073] entities=730 1.4/s ETA=85.5min   💾 Checkpoint saved: 10a
-   [1,100/8,073] entities=864 1.4/s ETA=84.0min   [1,200/8,073] entities=992 1.4/s ETA=81.3min   [1,300/8,073] entities=1,185 1.4/s ETA=79.1min   [1,400/8,073] entities=1,318 1.4/s ETA=77.6min   [1,500/8,073] entities=1,454 1.4/s ETA=76.0min   💾 Checkpoint saved: 10a
-   [1,600/8,073] entities=1,672 1.5/s ETA=73.2min   [1,700/8,073] entities=1,787 1.5/s ETA=72.8min   [1,800/8,073] entities=1,868 1.5/s ETA=71.6min   [1,900/8,073] entities=1,992 1.5/s ETA=70.4min   [2,000/8,073] entities=2,094 1.5/s ETA=69.5min   💾 Checkpoint saved: 10a
-   [2,100/8,073] entities=2,261 1.5/s ETA=67.9min   [2,200/8,073] entities=2,376 1.5/s ETA=65.8min   [2,300/8,073] entities=2,449 1.5/s ETA=64.2min   [2,400/8,073] entities=2,557 1.5/s ETA=63.8min   [2,500/8,073] entities=2,671 1.5/s ETA=62.3min   💾 Checkpoint saved: 10a
-   [2,600/8,073] entities=2,803 1.4/s ETA=62.9min   [2,700/8,073] entities=2,866 1.4/s ETA=63.5min   [2,800/8,073] entities=2,961 1.4/s ETA=64.5min   [2,900/8,073] entities=3,111 1.3/s ETA=64.8min   [3,000/8,073] entities=3,173 1.3/s ETA=65.2min   💾 Checkpoint saved: 10a
-   [3,100/8,073] entities=3,338 1.3/s ETA=64.9min   [3,200/8,073] entities=3,521 1.3/s ETA=64.5min   [3,300/8,073] entities=3,608 1.2/s ETA=64.3min   [3,400/8,073] entities=3,766 1.2/s ETA=63.5min   [3,500/8,073] entities=3,852 1.2/s ETA=62.9min   💾 Checkpoint saved: 10a
-   [3,600/8,073] entities=3,998 1.2/s ETA=61.8min   [3,700/8,073] entities=4,066 1.2/s ETA=61.9min   [3,800/8,073] entities=4,167 1.2/s ETA=61.4min   [3,900/8,073] entities=4,283 1.2/s ETA=60.4min   [4,000/8,073] entities=4,408 1.1/s ETA=59.7min   💾 Checkpoint saved: 10a
-   [4,100/8,073] entities=4,492 1.1/s ETA=58.5min   [4,200/8,073] entities=4,553 1.1/s ETA=58.4min   [4,300/8,073] entities=4,577 1.1/s ETA=58.0min   [4,400/8,073] entities=4,588 1.1/s ETA=57.5min   [4,500/8,073] entities=4,603 1.0/s ETA=57.2min   💾 Checkpoint saved: 10a
-   [4,600/8,073] entities=4,730 1.0/s ETA=55.7min   [4,700/8,073] entities=4,893 1.0/s ETA=54.2min   [4,800/8,073] entities=4,928 1.0/s ETA=53.6min   [4,900/8,073] entities=5,018 1.0/s ETA=52.1min   [5,000/8,073] entities=5,155 1.0/s ETA=50.6min   💾 Checkpoint saved: 10a
-   [5,100/8,073] entities=5,341 1.0/s ETA=49.2min   [5,200/8,073] entities=5,476 1.0/s ETA=47.9min   [5,300/8,073] entities=5,698 1.0/s ETA=46.3min   [5,400/8,073] entities=5,805 1.0/s ETA=44.9min   [5,500/8,073] entities=5,916 1.0/s ETA=43.2min   💾 Checkpoint saved: 10a
-   [5,600/8,073] entities=6,037 1.0/s ETA=41.3min   [5,700/8,073] entities=6,171 1.0/s ETA=39.8min   [5,800/8,073] entities=6,349 1.0/s ETA=37.9min   [5,900/8,073] entities=6,377 1.0/s ETA=36.8min   [6,000/8,073] entities=6,403 1.0/s ETA=35.4min   💾 Checkpoint saved: 10a
-   [6,100/8,073] entities=6,441 1.0/s ETA=34.2min   [6,200/8,073] entities=6,603 1.0/s ETA=32.7min   [6,300/8,073] entities=6,657 0.9/s ETA=31.1min   [6,400/8,073] entities=6,694 0.9/s ETA=29.6min   [6,500/8,073] entities=6,824 0.9/s ETA=27.9min   💾 Checkpoint saved: 10a
-   [6,600/8,073] entities=6,903 0.9/s ETA=26.3min   [6,700/8,073] entities=6,959 0.9/s ETA=24.6min   [6,800/8,073] entities=7,032 0.9/s ETA=22.9min   [6,900/8,073] entities=7,145 0.9/s ETA=21.2min   [7,000/8,073] entities=7,221 0.9/s ETA=19.4min   💾 Checkpoint saved: 10a
-   [7,100/8,073] entities=7,297 0.9/s ETA=17.7min   [7,200/8,073] entities=7,374 0.9/s ETA=15.9min   [7,300/8,073] entities=7,481 0.9/s ETA=14.1min   [7,400/8,073] entities=7,583 0.9/s ETA=12.4min   [7,500/8,073] entities=7,631 0.9/s ETA=10.6min   💾 Checkpoint saved: 10a
-   [7,600/8,073] entities=7,772 0.9/s ETA=8.7min   [7,700/8,073] entities=7,833 0.9/s ETA=6.9min   [7,800/8,073] entities=7,973 0.9/s ETA=5.0min   [7,900/8,073] entities=8,107 0.9/s ETA=3.2min   [8,000/8,073] entities=8,208 0.9/s ETA=1.4min   💾 Checkpoint saved: 10a
-
-   ✅ Phase 10a complete: 8,260 entities extracted
-   💾 Checkpoint saved: 10a_complete
-
-======================================================================
-✓ PHASE 10b: VALIDATE EXTRACTIONS
-======================================================================
-   Loading extractions...
-   Total entities: 9,557
-   Remaining: 9,557
-   Loading OCR pages for validation...
-   Loaded 2,704 pages
-   [100/9,557] valid=11 0.2/s ETA=804.1min   [200/9,557] valid=22 0.2/s ETA=749.8min   [300/9,557] valid=35 0.2/s ETA=736.1min   [400/9,557] valid=54 0.2/s ETA=707.6min   [500/9,557] valid=73 0.2/s ETA=701.3min   💾 Checkpoint saved: 10b
-   [600/9,557] valid=88 0.2/s ETA=698.0min   [700/9,557] valid=102 0.2/s ETA=690.0min   [800/9,557] valid=111 0.2/s ETA=681.3min   [900/9,557] valid=123 0.2/s ETA=678.2min   [1,000/9,557] valid=133 0.2/s ETA=673.1min   💾 Checkpoint saved: 10b
-   [1,100/9,557] valid=144 0.2/s ETA=662.5min   [1,200/9,557] valid=160 0.2/s ETA=650.8min   [1,300/9,557] valid=186 0.2/s ETA=639.8min   [1,400/9,557] valid=214 0.2/s ETA=629.1min   [1,500/9,557] valid=242 0.2/s ETA=618.5min   💾 Checkpoint saved: 10b
-   [1,600/9,557] valid=275 0.2/s ETA=605.8min   [1,700/9,557] valid=299 0.2/s ETA=598.4min   [1,800/9,557] valid=322 0.2/s ETA=590.7min   [1,900/9,557] valid=346 0.2/s ETA=580.1min   [2,000/9,557] valid=364 0.2/s ETA=571.5min   💾 Checkpoint saved: 10b
-   [2,100/9,557] valid=388 0.2/s ETA=562.3min   [2,200/9,557] valid=409 0.2/s ETA=551.8min   [2,300/9,557] valid=436 0.2/s ETA=545.1min   [2,400/9,557] valid=447 0.2/s ETA=540.1min   [2,500/9,557] valid=459 0.2/s ETA=534.5min   💾 Checkpoint saved: 10b
-   [2,600/9,557] valid=471 0.2/s ETA=528.1min   [2,700/9,557] valid=503 0.2/s ETA=519.4min   [2,800/9,557] valid=542 0.2/s ETA=508.5min   [2,900/9,557] valid=594 0.2/s ETA=496.2min   [3,000/9,557] valid=634 0.2/s ETA=485.2min   💾 Checkpoint saved: 10b
-   [3,100/9,557] valid=663 0.2/s ETA=475.6min   [3,200/9,557] valid=680 0.2/s ETA=469.1min   [3,300/9,557] valid=703 0.2/s ETA=460.0min   [3,400/9,557] valid=726 0.2/s ETA=451.8min   [3,500/9,557] valid=748 0.2/s ETA=443.6min   💾 Checkpoint saved: 10b
-   [3,600/9,557] valid=763 0.2/s ETA=436.8min   [3,700/9,557] valid=767 0.2/s ETA=429.3min   [3,800/9,557] valid=785 0.2/s ETA=421.1min   [3,900/9,557] valid=804 0.2/s ETA=413.3min   [4,000/9,557] valid=815 0.2/s ETA=406.6min   💾 Checkpoint saved: 10b
-   [4,100/9,557] valid=833 0.2/s ETA=399.8min   [4,200/9,557] valid=852 0.2/s ETA=392.0min   [4,300/9,557] valid=865 0.2/s ETA=384.1min   [4,400/9,557] valid=878 0.2/s ETA=376.4min   [4,500/9,557] valid=899 0.2/s ETA=368.1min   💾 Checkpoint saved: 10b
-   [4,600/9,557] valid=911 0.2/s ETA=360.0min   [4,700/9,557] valid=930 0.2/s ETA=352.5min   [4,800/9,557] valid=945 0.2/s ETA=345.2min   [4,900/9,557] valid=964 0.2/s ETA=337.7min   [5,000/9,557] valid=976 0.2/s ETA=330.8min   💾 Checkpoint saved: 10b
-   [5,100/9,557] valid=992 0.2/s ETA=322.9min   [5,200/9,557] valid=1,021 0.2/s ETA=315.5min   [5,300/9,557] valid=1,042 0.2/s ETA=308.6min   [5,400/9,557] valid=1,062 0.2/s ETA=301.5min   [5,500/9,557] valid=1,084 0.2/s ETA=294.1min   💾 Checkpoint saved: 10b
-   [5,600/9,557] valid=1,107 0.2/s ETA=286.4min   [5,700/9,557] valid=1,131 0.2/s ETA=278.6min   [5,800/9,557] valid=1,150 0.2/s ETA=271.1min   [5,900/9,557] valid=1,170 0.2/s ETA=263.9min   [6,000/9,557] valid=1,193 0.2/s ETA=256.6min   💾 Checkpoint saved: 10b
-   [6,100/9,557] valid=1,223 0.2/s ETA=248.8min

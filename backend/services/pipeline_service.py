@@ -103,7 +103,28 @@ class IrisPipelineService:
             print("[Pipeline] Stage 2: Running Real-ESRGAN upscaling...")
             t0 = time.time()
 
-            upscaled = self.esrgan.upscale(clean_iris)
+            # Handle RGBA images (4 channels) - upscale RGB and alpha separately
+            if clean_iris.shape[2] == 4:
+                print("[Pipeline] Detected RGBA image, handling alpha channel separately...")
+                rgb = clean_iris[:, :, :3]
+                alpha = clean_iris[:, :, 3]
+                
+                # Upscale RGB
+                upscaled_rgb = self.esrgan.upscale(rgb)
+                
+                # Upscale alpha channel (convert to 3-channel, upscale, take one channel)
+                alpha_3ch = np.stack([alpha, alpha, alpha], axis=2)
+                upscaled_alpha_3ch = self.esrgan.upscale(alpha_3ch)
+                upscaled_alpha = upscaled_alpha_3ch[:, :, 0]
+                
+                # Combine back to RGBA
+                upscaled_h, upscaled_w = upscaled_rgb.shape[:2]
+                upscaled = np.zeros((upscaled_h, upscaled_w, 4), dtype=np.uint8)
+                upscaled[:, :, :3] = upscaled_rgb
+                upscaled[:, :, 3] = upscaled_alpha
+                print(f"[Pipeline] RGBA upscaling complete: {upscaled_h}x{upscaled_w}")
+            else:
+                upscaled = self.esrgan.upscale(clean_iris)
 
             esrgan_time_ms = (time.time() - t0) * 1000
             print(f"[Pipeline] ✅ Real-ESRGAN completed in {esrgan_time_ms:.1f}ms")

@@ -8,7 +8,9 @@ export interface ProcessIrisResponse {
   processing_time_ms?: number;
   original_size?: [number, number];
   upscaled_size?: [number, number];
-  upscaled_image?: string; // base64 data URL
+  preview_image?: string;    // Watermarked low-res preview (base64 data URL)
+  purchase_token?: string;   // Token to unlock HD image (after payment)
+  // upscaled_image removed - now accessed via purchase_token after payment
   mask?: string;
   intermediate_iris?: string;
   metadata?: {

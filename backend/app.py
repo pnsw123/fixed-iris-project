@@ -39,11 +39,12 @@ from config import settings
 from services.iris_sam_service import IrisSAMService
 from services.esrgan_service import RealESRGANService
 from services.pipeline_service import IrisPipelineService
-from services.tribal_matcher_service import initialize_tribal_matcher, get_tribal_matcher
-from app_utils.image_utils import numpy_to_base64
+from services.purchase_service import purchase_service
+from app_utils.image_utils import numpy_to_base64, create_preview
 from app_utils.validation import validate_image_upload
-from api.tribe_routes import router as tribe_router
 from api.session_routes import router as session_router
+from api.webhook_routes import router as webhook_router
+from api.download_routes import router as download_router
 
 # Configure logging
 logging.basicConfig(
@@ -74,17 +75,18 @@ app.add_middleware(
 iris_sam_service: Optional[IrisSAMService] = None
 esrgan_service: Optional[RealESRGANService] = None
 pipeline_service: Optional[IrisPipelineService] = None
-tribal_matcher_service = None
+
 
 # Include API routers
-app.include_router(tribe_router)
 app.include_router(session_router)
+app.include_router(webhook_router)
+app.include_router(download_router)
 
 
 @app.on_event("startup")
 async def startup_event():
     """Load models on server startup."""
-    global iris_sam_service, esrgan_service, pipeline_service, tribal_matcher_service
+    global iris_sam_service, esrgan_service, pipeline_service
 
     logger.info("=" * 60)
     logger.info("🚀 Starting Iris Processing Backend")
@@ -113,9 +115,7 @@ async def startup_event():
         logger.info("[Startup] Initializing pipeline...")
         pipeline_service = IrisPipelineService(iris_sam_service, esrgan_service)
 
-        logger.info("[Startup] Loading Tribal Matcher...")
-        tribal_matcher_service = initialize_tribal_matcher()
-        logger.info(f"[Startup] ✅ Tribal Matcher loaded: {len(tribal_matcher_service.nodes)} tribes")
+
 
         logger.info("=" * 60)
         logger.info("✅ All models and services loaded successfully!")
@@ -126,6 +126,28 @@ async def startup_event():
         import traceback
         traceback.print_exc()
         raise
+
+
+import asyncio
+
+async def cleanup_expired_purchases():
+    """Background task to clean up expired purchases."""
+    while True:
+        try:
+            count = purchase_service.cleanup_expired()
+            if count > 0:
+                logger.info(f"[Cleanup] Removed {count} expired purchases")
+        except Exception as e:
+            logger.error(f"[Cleanup] Error: {e}")
+        
+        await asyncio.sleep(300)  # Run every 5 minutes
+
+
+@app.on_event("startup")
+async def start_cleanup_task():
+    """Start the purchase cleanup background task."""
+    asyncio.create_task(cleanup_expired_purchases())
+    logger.info("[Startup] Purchase cleanup task started")
 
 
 @app.get("/health")
@@ -213,13 +235,57 @@ async def process_iris(
                 }
             )
 
-        # Convert numpy arrays to base64 data URLs
+        # Convert numpy arrays to base64/bytes
+        full_image_arr = result["upscaled_image"]
+        
+        # Create preview (low res + watermark)
+        preview_image_arr = create_preview(full_image_arr, max_size=360)  # 360px preview with watermark
+        
+        # Encode images
+        preview_b64 = numpy_to_base64(preview_image_arr, format='PNG')
+        
+        # Encode HD image to bytes for storage (not base64)
+        import io
+        from PIL import Image
+        
+        # Convert HD numpy array to PNG bytes
+        if len(full_image_arr.shape) == 3 and full_image_arr.shape[2] == 4:
+            hd_pil = Image.fromarray(full_image_arr.astype(np.uint8), mode='RGBA')
+        else:
+            hd_pil = Image.fromarray(full_image_arr.astype(np.uint8), mode='RGB')
+            
+        hd_byte_io = io.BytesIO()
+        hd_pil.save(hd_byte_io, format='PNG')
+        hd_bytes = hd_byte_io.getvalue()
+        
+        # Encode preview to bytes for storage too
+        preview_byte_io = io.BytesIO()
+        Image.fromarray(preview_image_arr.astype(np.uint8)).save(preview_byte_io, format='PNG')
+        preview_bytes = preview_byte_io.getvalue()
+
+        # Create Pending Purchase
+        # Stores HD image in memory, accessible only via token
+        purchase_token = purchase_service.create_purchase(
+            hd_image_data=hd_bytes,
+            preview_data=preview_bytes
+        )
+        
         response = {
             "success": True,
             "processing_time_ms": processing_time,
             "original_size": result["original_size"],
             "upscaled_size": result["upscaled_size"],
-            "upscaled_image": numpy_to_base64(result["upscaled_image"], format='PNG'),
+            
+            # The public preview (watermarked)
+            "preview_image": preview_b64,
+            
+            # NO HD IMAGE HERE! 
+            # Replaced with token for purchasing
+            "purchase_token": purchase_token,
+            
+            # Removed upscaled_image to prevent free download
+            # "upscaled_image": ..., 
+            
             "metadata": result["metadata"]
         }
 

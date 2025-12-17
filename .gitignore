@@ -66,3 +66,10 @@ scripts/extraction/*.pyc
 
 # Environment
 anthropic_api_key.txt
+
+# Large folders
+backend/venv/
+Data/
+tribal_validation_pipeline/
+*.dylib
+*.pth

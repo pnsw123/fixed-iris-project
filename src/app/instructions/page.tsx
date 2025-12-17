@@ -14,7 +14,7 @@ export default function InstructionsPage() {
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
             {/* Header */}
-            <div className="border-b border-gray-800 px-6 py-4">
+            <div className="px-6 py-6">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => router.back()}
@@ -27,7 +27,7 @@ export default function InstructionsPage() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 px-6 py-8 max-w-lg mx-auto w-full">
+            <div className="flex-1 px-8 py-12 sm:px-16 max-w-xl mx-auto w-full">
                 <div className="space-y-10">
 
                     {/* Visual Guide (Slider) */}

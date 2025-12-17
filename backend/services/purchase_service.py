@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Dict
 from enum import Enum
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +38,9 @@ class PendingPurchase:
     - Deleted after expiry (1h unpaid, 48h paid)
     """
     token: str
-    image_data: bytes
-    preview_data: bytes
+    image_data: bytes           # HD enhanced image
+    preview_data: bytes         # Watermarked preview
+    original_data: bytes        # Original capture (before enhancement)
     status: PurchaseStatus = PurchaseStatus.PENDING
     user_email: Optional[str] = None
     order_id: Optional[str] = None
@@ -84,12 +86,16 @@ class PurchaseService:
         # Idempotency tracking for webhooks
         self._processed_webhook_ids: set = set()
         
-        logger.info("PurchaseService initialized (in-memory storage)")
+        # Thread-safe lock for concurrent access
+        self._lock = threading.Lock()
+        
+        logger.info("PurchaseService initialized (in-memory storage, thread-safe)")
     
     def create_purchase(
         self, 
         hd_image_data: bytes, 
         preview_data: bytes,
+        original_data: bytes,
         user_email: Optional[str] = None
     ) -> str:
         """
@@ -98,25 +104,28 @@ class PurchaseService:
         Args:
             hd_image_data: Full resolution image bytes
             preview_data: Watermarked preview image bytes
+            original_data: Original capture image bytes
             user_email: User's email (collected before checkout)
             
         Returns:
             Unique token for this purchase
         """
-        token = str(uuid.uuid4())
-        
-        purchase = PendingPurchase(
-            token=token,
-            image_data=hd_image_data,
-            preview_data=preview_data,
-            user_email=user_email
-        )
-        
-        self._purchases[token] = purchase
-        
-        logger.info(f"Created pending purchase: {token[:8]}... (email: {user_email or 'not provided'})")
-        
-        return token
+        with self._lock:
+            token = str(uuid.uuid4())
+            
+            purchase = PendingPurchase(
+                token=token,
+                image_data=hd_image_data,
+                preview_data=preview_data,
+                original_data=original_data,
+                user_email=user_email
+            )
+            
+            self._purchases[token] = purchase
+            
+            logger.info(f"Created pending purchase: {token[:8]}... (email: {user_email or 'not provided'})")
+            
+            return token
     
     def get_purchase(self, token: str) -> Optional[PendingPurchase]:
         """Get a purchase by token."""
@@ -175,7 +184,8 @@ class PurchaseService:
     
     def mark_webhook_processed(self, event_id: str) -> None:
         """Mark a webhook event as processed."""
-        self._processed_webhook_ids.add(event_id)
+        with self._lock:
+            self._processed_webhook_ids.add(event_id)
     
     def cleanup_expired(self) -> int:
         """
@@ -184,16 +194,17 @@ class PurchaseService:
         Returns:
             Number of purchases cleaned up
         """
-        expired_tokens = [
-            token for token, purchase in self._purchases.items()
-            if purchase.is_expired
-        ]
-        
-        for token in expired_tokens:
-            del self._purchases[token]
-            logger.info(f"Cleaned up expired purchase: {token[:8]}...")
-        
-        return len(expired_tokens)
+        with self._lock:
+            expired_tokens = [
+                token for token, purchase in self._purchases.items()
+                if purchase.is_expired
+            ]
+            
+            for token in expired_tokens:
+                del self._purchases[token]
+                logger.info(f"Cleaned up expired purchase: {token[:8]}...")
+            
+            return len(expired_tokens)
     
     def get_stats(self) -> dict:
         """Get statistics about current purchases."""

@@ -332,3 +332,31 @@ async def download_demo(request: DownloadRequest):
             "Cache-Control": "no-store"
         }
     )
+
+
+@router.post("/api/download-original-demo")
+async def download_original_demo(request: DownloadRequest):
+    """
+    DEMO MODE: Download original capture image without payment verification.
+    This is for testing only - remove in production!
+    """
+    token = request.token
+    
+    purchase = purchase_service.get_purchase(token)
+    if not purchase:
+        return JSONResponse(
+            {"error": "Invalid or expired token"},
+            status_code=404
+        )
+    
+    # Serve the original image regardless of payment status (DEMO ONLY)
+    logger.info(f"🧪 DEMO original download: {token[:8]}... (bypassing payment)")
+    
+    return Response(
+        content=purchase.original_data,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": "attachment; filename=eyedentity-original.png",
+            "Cache-Control": "no-store"
+        }
+    )

@@ -7,11 +7,6 @@ import { CaptureData } from './MobileCaptureScreen';
 
 interface ReviewScreenProps {
     captureData: CaptureData;
-    userData?: {
-        firstName: string;
-        lastName: string;
-        tribe: any;
-    };
     onRetake: () => void;
 }
 
@@ -23,7 +18,7 @@ const BACKEND_URL = typeof window !== 'undefined'
         : 'https://localhost:8000')
     : 'https://localhost:8000';
 
-export default function ReviewScreen({ captureData, userData, onRetake }: ReviewScreenProps) {
+export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProps) {
     const { imageData: irisCrop, irisCoordinates, cropSize, irisRadius } = captureData;
 
     // Image states
@@ -43,6 +38,7 @@ export default function ReviewScreen({ captureData, userData, onRetake }: Review
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadStatus, setDownloadStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
     const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+    const [emailVerified, setEmailVerified] = useState(false);  // Unlocks download buttons
 
     // Check backend availability on mount
     useEffect(() => {
@@ -77,7 +73,7 @@ export default function ReviewScreen({ captureData, userData, onRetake }: Review
 
             if (response.ok) {
                 const blob = await response.blob();
-                downloadBlob(blob, 'eyedentity-hd.png');
+                downloadBlobReliable(blob, 'eyedentity-hd.png');
                 localStorage.removeItem('eyedentity_purchase');
                 setDownloadStatus('success');
                 setDownloadMessage('Download recovered! Check your downloads folder.');
@@ -157,6 +153,7 @@ export default function ReviewScreen({ captureData, userData, onRetake }: Review
         }
 
         setShowEmailModal(false);
+        setEmailVerified(true);  // Unlock download buttons
 
         // Check if Lemon Squeezy is configured
         if (LEMONSQUEEZY_CHECKOUT_URL) {
@@ -169,91 +166,146 @@ export default function ReviewScreen({ captureData, userData, onRetake }: Review
             window.open(checkoutUrl.toString(), '_blank');
 
             setDownloadStatus('pending');
-            setDownloadMessage('Complete payment in the new tab. Your download will start automatically, and a backup link will be sent to your email.');
+            setDownloadMessage('Complete payment in the new tab. Then tap the download buttons below.');
         } else {
-            // Demo mode - attempt download directly (for testing without LS)
-            setDownloadStatus('pending');
-            setDownloadMessage('Payment system not configured yet. In production, you would be redirected to checkout.');
-
-            // For demo: try to download anyway (will fail unless manually marked as paid)
-            setTimeout(() => {
-                attemptDownload();
-            }, 2000);
+            // Demo mode - downloads are ready, no auto-download
+            setDownloadStatus('success');
+            setDownloadMessage('✓ Your images are ready! Tap each button below to download.');
         }
+
+        // Scroll to download buttons after a brief delay
+        setTimeout(() => {
+            const downloadSection = document.getElementById('download-buttons');
+            if (downloadSection) {
+                downloadSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
     };
 
     const attemptDownload = async () => {
         if (!purchaseToken) return;
 
         setIsDownloading(true);
+        setDownloadMessage('Fetching your images...');
 
         try {
-            // Use demo endpoint for testing (bypasses payment check)
-            // Change to /api/download-hd when payment is live
-            const response = await fetch(`${BACKEND_URL}/api/download-demo`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: purchaseToken })
-            });
+            // STEP 1: Fetch BOTH images first (before triggering any downloads)
+            const [hdResponse, originalResponse] = await Promise.all([
+                fetch(`${BACKEND_URL}/api/download-demo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: purchaseToken })
+                }),
+                fetch(`${BACKEND_URL}/api/download-original-demo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: purchaseToken })
+                })
+            ]);
 
-            if (response.ok) {
-                const blob = await response.blob();
-                downloadBlob(blob, 'eyedentity-hd.png');
-
-                localStorage.removeItem('eyedentity_purchase');
-                setDownloadStatus('success');
-                setDownloadMessage('Download complete! (Demo mode - no payment required)');
-            } else if (response.status === 202) {
-                // Payment still processing
-                setDownloadStatus('pending');
-                setDownloadMessage('Payment verification in progress. Check your email for the download link.');
-            } else {
-                const data = await response.json();
-                setDownloadStatus('error');
-                setDownloadMessage(data.error || data.message || 'Download failed.');
+            if (!hdResponse.ok) {
+                const data = await hdResponse.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to fetch HD image');
             }
+
+            if (!originalResponse.ok) {
+                const data = await originalResponse.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to fetch original image');
+            }
+
+            // STEP 2: Convert both to blobs
+            setDownloadMessage('Preparing downloads...');
+            const [hdBlob, originalBlob] = await Promise.all([
+                hdResponse.blob(),
+                originalResponse.blob()
+            ]);
+
+            // STEP 3: Trigger both downloads (nearly simultaneously)
+            setDownloadMessage('Downloading 2 images...');
+
+            // Download HD first
+            downloadBlobReliable(hdBlob, 'eyedentity-hd.png');
+
+            // Tiny delay then download original
+            await new Promise(resolve => setTimeout(resolve, 100));
+            downloadBlobReliable(originalBlob, 'eyedentity-original.png');
+
+            localStorage.removeItem('eyedentity_purchase');
+            setDownloadStatus('success');
+            setDownloadMessage('✓ Both images downloaded! Check your downloads folder.');
+
         } catch (error) {
+            console.error('[Download] Error:', error);
             setDownloadStatus('error');
-            setDownloadMessage('Download failed. Please try again.');
+            setDownloadMessage(error instanceof Error ? error.message : 'Download failed. Please try again.');
         } finally {
             setIsDownloading(false);
         }
     };
 
-    const downloadBlob = (blob: Blob, filename: string) => {
+    // Individual download function - handles one image at a time (for mobile reliability)
+    const downloadImage = async (type: 'hd' | 'original') => {
+        if (!purchaseToken) return;
+
+        setIsDownloading(true);
+        setDownloadMessage(`Downloading ${type === 'hd' ? 'HD Enhanced' : 'Original'}...`);
+
+        try {
+            const endpoint = type === 'hd'
+                ? `${BACKEND_URL}/api/download-demo`
+                : `${BACKEND_URL}/api/download-original-demo`;
+
+            const filename = type === 'hd'
+                ? 'eyedentity-hd.png'
+                : 'eyedentity-original.png';
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: purchaseToken })
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || `Failed to download ${type} image`);
+            }
+
+            const blob = await response.blob();
+            downloadBlobReliable(blob, filename);
+
+            setDownloadStatus('success');
+            setDownloadMessage(`✓ ${type === 'hd' ? 'HD Enhanced' : 'Original'} downloaded!`);
+
+        } catch (error) {
+            console.error(`[Download ${type}] Error:`, error);
+            setDownloadStatus('error');
+            setDownloadMessage(error instanceof Error ? error.message : 'Download failed.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    const downloadBlobReliable = (blob: Blob, filename: string) => {
+        // Create object URL
         const url = URL.createObjectURL(blob);
+
+        // Create and configure link element
         const link = document.createElement('a');
         link.href = url;
         link.download = filename;
+        link.style.display = 'none';
+
+        // Append to body (more reliable on mobile)
+        document.body.appendChild(link);
+
+        // Click to trigger download
         link.click();
-        URL.revokeObjectURL(url);
-    };
 
-    const getPrideMessage = () => {
-        if (!userData || !previewImage || isEnhancing) return null;
-
-        const tribe = userData.tribe;
-        const hierarchyText = tribe?.hierarchy_path || tribe?.canonical_name || userData.lastName;
-
-        return (
-            <div className="mt-8 text-center space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-1000">
-                <p className="text-xs font-mono text-gray-500 uppercase tracking-[0.2em]">
-                    The Pride of
-                </p>
-                <h2 className="text-xl md:text-2xl font-light text-white tracking-wide leading-relaxed px-4">
-                    {hierarchyText}
-                </h2>
-                {tribe && (
-                    <div className="flex items-center justify-center gap-2 mt-2">
-                        <div className="h-px w-8 bg-emerald-900/50"></div>
-                        <p className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider">
-                            Verified Heritage
-                        </p>
-                        <div className="h-px w-8 bg-emerald-900/50"></div>
-                    </div>
-                )}
-            </div>
-        );
+        // Clean up after a short delay
+        setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 1000);
     };
 
     return (
@@ -306,47 +358,11 @@ export default function ReviewScreen({ captureData, userData, onRetake }: Review
                             {/* Watermark indicator */}
                             {previewImage && (
                                 <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs font-mono text-gray-400">
-                                    Preview (Watermarked)
+                                    Preview 360p (Watermarked)
                                 </div>
                             )}
                         </div>
                     </div>
-
-                    {/* Processing Metadata Display */}
-                    {processingMetadata && (
-                        <div className="bg-gray-900 border border-gray-800 p-4 rounded font-mono text-xs">
-                            <div className="grid grid-cols-2 gap-3 text-gray-400">
-                                <div>
-                                    <span className="text-gray-500">Iris-SAM:</span>{' '}
-                                    <span className="text-emerald-400">
-                                        {processingMetadata.iris_sam_time_ms?.toFixed(0)}ms
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="text-gray-500">Real-ESRGAN:</span>{' '}
-                                    <span className="text-emerald-400">
-                                        {processingMetadata.esrgan_time_ms?.toFixed(0)}ms
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="text-gray-500">Mask Quality:</span>{' '}
-                                    <span className="text-emerald-400">
-                                        {(processingMetadata.mask_quality_score * 100)?.toFixed(1)}%
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="text-gray-500">Total:</span>{' '}
-                                    <span className="text-emerald-400">
-                                        {((processingMetadata.iris_sam_time_ms || 0) +
-                                            (processingMetadata.esrgan_time_ms || 0))?.toFixed(0)}ms
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Pride Message */}
-                    {getPrideMessage()}
 
                     {/* Enhance Button - Only show if not enhanced yet */}
                     {!previewImage && !isEnhancing && (
@@ -418,25 +434,73 @@ export default function ReviewScreen({ captureData, userData, onRetake }: Review
                         </button>
                     </div>
 
-                    {/* Download HD Button - Only show after enhancement */}
+                    {/* Download Buttons - Show after enhancement */}
                     {previewImage && purchaseToken && (
-                        <button
-                            onClick={handleDownloadHDClick}
-                            disabled={isDownloading}
-                            className="w-full bg-gradient-to-r from-amber-600 to-amber-500
-                             text-white font-medium py-4 px-6
-                             hover:from-amber-500 hover:to-amber-400
-                             disabled:opacity-50 disabled:cursor-not-allowed
-                             transition-all flex items-center justify-center gap-3
-                             shadow-lg shadow-amber-900/50"
-                        >
-                            {isDownloading ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <Download className="w-5 h-5" />
+                        <div id="download-buttons" className="space-y-3">
+                            {/* Before email: Show single "Unlock HD" button */}
+                            {!emailVerified && (
+                                <>
+                                    <button
+                                        onClick={handleDownloadHDClick}
+                                        disabled={isDownloading}
+                                        className="w-full bg-gradient-to-r from-amber-600 to-amber-500
+                                         text-white font-medium py-4 px-6
+                                         hover:from-amber-500 hover:to-amber-400
+                                         disabled:opacity-50 disabled:cursor-not-allowed
+                                         transition-all flex items-center justify-center gap-3
+                                         shadow-lg shadow-amber-900/50"
+                                    >
+                                        <Download className="w-5 h-5" />
+                                        Unlock HD Images - $2.99
+                                    </button>
+                                    <p className="text-center text-xs text-gray-400">
+                                        Get full resolution, watermark-free images
+                                    </p>
+                                </>
                             )}
-                            Download HD (No Watermark) - $2.99
-                        </button>
+
+                            {/* After email: Show two download buttons */}
+                            {emailVerified && (
+                                <>
+                                    {/* Download HD Enhanced */}
+                                    <button
+                                        onClick={() => downloadImage('hd')}
+                                        disabled={isDownloading}
+                                        className="w-full bg-gradient-to-r from-amber-600 to-amber-500
+                                         text-white font-medium py-4 px-6
+                                         hover:from-amber-500 hover:to-amber-400
+                                         disabled:opacity-50 disabled:cursor-not-allowed
+                                         transition-all flex items-center justify-center gap-3
+                                         shadow-lg shadow-amber-900/50"
+                                    >
+                                        {isDownloading ? (
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                        ) : (
+                                            <Download className="w-5 h-5" />
+                                        )}
+                                        Download HD Enhanced
+                                    </button>
+
+                                    {/* Download Original */}
+                                    <button
+                                        onClick={() => downloadImage('original')}
+                                        disabled={isDownloading}
+                                        className="w-full border border-gray-600 bg-gray-800/50
+                                         text-gray-300 font-medium py-3 px-6
+                                         hover:bg-gray-700 hover:text-white
+                                         disabled:opacity-50 disabled:cursor-not-allowed
+                                         transition-all flex items-center justify-center gap-3"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        Download Original Capture
+                                    </button>
+
+                                    <p className="text-center text-xs text-gray-500">
+                                        Tap each button to download both images
+                                    </p>
+                                </>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>

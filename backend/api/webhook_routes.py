@@ -31,10 +31,9 @@ def verify_signature(payload: bytes, signature: str) -> bool:
     LS signs webhooks with HMAC-SHA256 using the webhook secret.
     """
     if not WEBHOOK_SECRET:
-        logger.warning("LEMONSQUEEZY_WEBHOOK_SECRET not configured - skipping verification")
-        # In development, allow without verification
-        # TODO: Make this strict in production
-        return True
+        # STRICT: Reject if secret not configured (prevents forged webhooks)
+        logger.error("LEMONSQUEEZY_WEBHOOK_SECRET not configured - rejecting webhook")
+        return False
     
     expected = hmac.new(
         WEBHOOK_SECRET.encode(),

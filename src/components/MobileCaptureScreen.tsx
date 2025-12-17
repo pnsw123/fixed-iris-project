@@ -82,7 +82,7 @@ export default function MobileCaptureScreen({
         }
 
         // All good
-        const allPerfect = 
+        const allPerfect =
             report.distance.status === 'ok' &&
             report.centering.status === 'ok' &&
             report.lighting.status === 'ok';
@@ -289,7 +289,7 @@ export default function MobileCaptureScreen({
                 stableGoodFramesRef.current += 1;
             } else {
                 stableGoodFramesRef.current = 0;
-                
+
                 // CRITICAL FIX: Immediately abort countdown if conditions are no longer good
                 // This ensures closing eyes or moving away stops the countdown instantly
                 if (countdownIntervalRef.current) {
@@ -388,7 +388,7 @@ export default function MobileCaptureScreen({
         console.log('[Capture] performCapture called');
         console.log('[Capture] isCapturing:', isCapturing);
         console.log('[Capture] currentReport:', currentReport);
-        
+
         if (!videoRef.current || !canvasRef.current || !currentReport) {
             console.warn('[Capture] Cannot capture - missing dependencies');
             console.warn('[Capture] video:', !!videoRef.current, 'canvas:', !!canvasRef.current, 'report:', !!currentReport);
@@ -590,7 +590,7 @@ export default function MobileCaptureScreen({
         onCaptureComplete(captureData);
 
         console.log('[Capture] Capture complete!');
-    }, [currentReport, stopCamera, stopAnalysisLoop, onCaptureComplete, isCapturing]);
+    }, [currentReport, stopCamera, stopAnalysisLoop, onCaptureComplete]);
 
     // Trigger capture when countdown reaches -1
     useEffect(() => {

@@ -10,12 +10,7 @@ export default function CapturePage() {
 
     useEffect(() => {
         setIsMounted(true);
-        // Ensure we have user data
-        const userData = sessionStorage.getItem('heritage_user');
-        if (!userData) {
-            router.replace('/name-input');
-        }
-    }, [router]);
+    }, []);
 
     const handleBack = () => {
         router.back();

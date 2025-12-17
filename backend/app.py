@@ -34,6 +34,7 @@ import base64
 import time
 from typing import Optional
 import logging
+import asyncio
 
 from config import settings
 from services.iris_sam_service import IrisSAMService
@@ -42,7 +43,6 @@ from services.pipeline_service import IrisPipelineService
 from services.purchase_service import purchase_service
 from app_utils.image_utils import numpy_to_base64, create_preview
 from app_utils.validation import validate_image_upload
-from api.session_routes import router as session_router
 from api.webhook_routes import router as webhook_router
 from api.download_routes import router as download_router
 
@@ -76,9 +76,12 @@ iris_sam_service: Optional[IrisSAMService] = None
 esrgan_service: Optional[RealESRGANService] = None
 pipeline_service: Optional[IrisPipelineService] = None
 
+# GPU access semaphore - only 1 request processes at a time
+# Prevents OOM when multiple users submit simultaneously
+GPU_SEMAPHORE = asyncio.Semaphore(1)
+
 
 # Include API routers
-app.include_router(session_router)
 app.include_router(webhook_router)
 app.include_router(download_router)
 
@@ -213,16 +216,20 @@ async def process_iris(
         else:
             logger.info(f"   No iris coordinates - using center fallback")
 
-        # Process through pipeline
-        t0 = time.time()
-        result = pipeline_service.process(
-            img_array,
-            return_mask=return_mask,
-            return_intermediate=return_intermediate,
-            iris_center=iris_center,
-            iris_radius=iris_radius
-        )
-        processing_time = (time.time() - t0) * 1000
+        # Process through pipeline (serialized via GPU semaphore)
+        logger.info("   Waiting for GPU access...")
+        async with GPU_SEMAPHORE:
+            logger.info("   GPU acquired, processing...")
+            t0 = time.time()
+            result = pipeline_service.process(
+                img_array,
+                return_mask=return_mask,
+                return_intermediate=return_intermediate,
+                iris_center=iris_center,
+                iris_radius=iris_radius
+            )
+            processing_time = (time.time() - t0) * 1000
+            logger.info("   GPU released.")
 
         if not result.get("success"):
             logger.error(f"   Pipeline failed: {result.get('error')}")
@@ -262,12 +269,24 @@ async def process_iris(
         preview_byte_io = io.BytesIO()
         Image.fromarray(preview_image_arr.astype(np.uint8)).save(preview_byte_io, format='PNG')
         preview_bytes = preview_byte_io.getvalue()
+        
+        # Encode original image to bytes for bundled download
+        original_byte_io = io.BytesIO()
+        if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+            original_pil = Image.fromarray(img_array.astype(np.uint8), mode='RGBA')
+        elif len(img_array.shape) == 3:
+            original_pil = Image.fromarray(img_array.astype(np.uint8), mode='RGB')
+        else:
+            original_pil = Image.fromarray(img_array.astype(np.uint8), mode='L')
+        original_pil.save(original_byte_io, format='PNG')
+        original_bytes = original_byte_io.getvalue()
 
         # Create Pending Purchase
-        # Stores HD image in memory, accessible only via token
+        # Stores HD image + original in memory, accessible only via token
         purchase_token = purchase_service.create_purchase(
             hd_image_data=hd_bytes,
-            preview_data=preview_bytes
+            preview_data=preview_bytes,
+            original_data=original_bytes
         )
         
         response = {

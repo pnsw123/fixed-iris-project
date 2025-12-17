@@ -8,7 +8,7 @@ export default function InstructionsPage() {
     const router = useRouter();
 
     const handleContinue = () => {
-        router.push('/name-input');
+        router.push('/mobile-capture');
     };
 
     return (

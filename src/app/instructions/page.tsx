@@ -1,16 +1,58 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Sun, Eye, Ruler } from 'lucide-react';
+import { ArrowLeft, Sun, Eye, Ruler, Loader2 } from 'lucide-react';
 import ComparisonSlider from '@/components/ComparisonSlider';
+import UnsupportedDeviceScreen from '@/components/UnsupportedDeviceScreen';
+import { checkCameraResolution, CameraCapabilities } from '@/lib/cameraCheck';
+
+type GateState = 'checking' | 'supported' | 'unsupported';
 
 export default function InstructionsPage() {
     const router = useRouter();
+    const [gateState, setGateState] = useState<GateState>('checking');
+    const [cameraInfo, setCameraInfo] = useState<CameraCapabilities | null>(null);
+
+    // Check camera resolution on mount
+    useEffect(() => {
+        const checkCamera = async () => {
+            console.log('[Instructions] Checking camera resolution...');
+            const result = await checkCameraResolution();
+            setCameraInfo(result);
+
+            if (result.meetsRequirement) {
+                console.log('[Instructions] ✅ Camera meets requirements');
+                setGateState('supported');
+            } else {
+                console.log('[Instructions] ❌ Camera does NOT meet requirements');
+                setGateState('unsupported');
+            }
+        };
+
+        checkCamera();
+    }, []);
 
     const handleContinue = () => {
         router.push('/mobile-capture');
     };
 
+    // Loading state while checking camera
+    if (gateState === 'checking') {
+        return (
+            <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
+                <Loader2 className="w-10 h-10 text-white animate-spin mb-4" />
+                <p className="text-gray-400 font-light">Checking camera compatibility...</p>
+            </div>
+        );
+    }
+
+    // Camera doesn't meet requirements
+    if (gateState === 'unsupported') {
+        return <UnsupportedDeviceScreen cameraInfo={cameraInfo || undefined} />;
+    }
+
+    // Camera meets requirements - show instructions
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
             {/* Header */}

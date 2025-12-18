@@ -32,3 +32,9 @@ body {
     text-wrap: balance;
   }
 }
+
+@keyframes drawLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}

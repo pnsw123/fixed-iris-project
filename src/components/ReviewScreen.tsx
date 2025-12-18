@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Download, RotateCcw, Sparkles, Wifi, WifiOff, Mail, X, Loader2 } from 'lucide-react';
 import { backendClient } from '@/lib/backendClient';
 import { CaptureData } from './MobileCaptureScreen';
+import SpotlightBackground from './SpotlightBackground';
 
 interface ReviewScreenProps {
     captureData: CaptureData;
@@ -309,9 +310,10 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
     };
 
     return (
-        <div className="min-h-screen bg-black flex flex-col">
+        <div className="min-h-screen bg-black flex flex-col relative overflow-hidden">
+            <SpotlightBackground />
             {/* Header with Backend Status */}
-            <div className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+            <div className="px-6 py-6 flex items-center justify-between relative z-10">
                 <h1 className="text-sm font-mono text-gray-400 tracking-wider">IRIS CAPTURE REVIEW</h1>
                 <div className="flex items-center gap-2">
                     {backendAvailable === true && (
@@ -330,7 +332,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+            <div className="flex-1 flex flex-col items-center justify-center px-8 py-16 sm:px-16 relative z-10">
                 <div className="max-w-4xl w-full space-y-8">
                     {/* Image Preview */}
                     <div className="flex flex-col items-center">

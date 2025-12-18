@@ -6,7 +6,11 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 // DEBUG MODE: Set to true to use same image for both sides (alignment test)
 const DEBUG_MODE = false;
 
-export default function ComparisonSlider() {
+interface ComparisonSliderProps {
+    compact?: boolean;
+}
+
+export default function ComparisonSlider({ compact = false }: ComparisonSliderProps) {
     const sliderRef = useRef<HTMLDivElement>(null);
     const draggingRef = useRef(false);
     const animatingRef = useRef(true);
@@ -136,7 +140,10 @@ export default function ComparisonSlider() {
             <span className="text-xs uppercase tracking-[0.18em] text-gray-500">
                 See example result
             </span>
-            <div className="relative h-[280px] w-full overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+            <div
+                className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[0_24px_60px_rgba(0,0,0,0.55)]"
+                style={{ height: compact ? '160px' : '280px' }}
+            >
                 <div
                     ref={sliderRef}
                     className="relative h-full w-full touch-none select-none cursor-ew-resize"
@@ -161,7 +168,7 @@ export default function ComparisonSlider() {
                             src={DEBUG_MODE ? "/before.png" : "/after.png"}
                             alt="After"
                             className="absolute left-0 top-0 h-full object-cover object-center pointer-events-none"
-                            style={{ 
+                            style={{
                                 width: containerWidth ? `${containerWidth}px` : '100%',
                                 maxWidth: 'none'
                             }}

@@ -1,37 +1,84 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Sun, Eye, Ruler, Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import ComparisonSlider from '@/components/ComparisonSlider';
 import UnsupportedDeviceScreen from '@/components/UnsupportedDeviceScreen';
 import { checkCameraResolution, CameraCapabilities } from '@/lib/cameraCheck';
+import SpotlightBackground from '@/components/SpotlightBackground';
+
+// Dynamic import to avoid SSR issues with RoughJS
+const ChalkboardList = dynamic(() => import('@/components/ChalkboardList'), {
+    ssr: false,
+    loading: () => <div className="h-64 animate-pulse bg-gray-900 rounded-lg" />,
+});
+
 
 type GateState = 'checking' | 'supported' | 'unsupported';
+
+const instructionItems = [
+    {
+        number: 1,
+        title: 'Bright Light',
+        description: 'Get close to a lamp or use your flashlight.',
+        iconType: 'flashlight' as const,
+    },
+    {
+        number: 2,
+        title: 'Get Close',
+        description: 'Move in until the indicator turns green.',
+        iconType: 'getcloser' as const,
+    },
+    {
+        number: 3,
+        title: 'Look Straight',
+        description: 'Look at the camera, not the screen.',
+        iconType: 'eye' as const,
+    },
+    {
+        number: 4,
+        title: 'Focus',
+        description: 'Make sure the image is sharp, not blurry.',
+        iconType: 'focus' as const,
+    },
+];
+
 
 export default function InstructionsPage() {
     const router = useRouter();
     const [gateState, setGateState] = useState<GateState>('checking');
     const [cameraInfo, setCameraInfo] = useState<CameraCapabilities | null>(null);
+    const lightSectionRef = useRef<HTMLDivElement>(null);
 
-    // Check camera resolution on mount
+    // TODO: RE-ENABLE CAMERA CHECK - Temporarily disabled for desktop testing
     useEffect(() => {
-        const checkCamera = async () => {
-            console.log('[Instructions] Checking camera resolution...');
-            const result = await checkCameraResolution();
-            setCameraInfo(result);
+        // TEMPORARILY BYPASSED - set to 'supported' directly
+        setGateState('supported');
 
-            if (result.meetsRequirement) {
-                console.log('[Instructions] ✅ Camera meets requirements');
-                setGateState('supported');
-            } else {
-                console.log('[Instructions] ❌ Camera does NOT meet requirements');
-                setGateState('unsupported');
-            }
-        };
-
-        checkCamera();
+        // Original camera check code (uncomment to re-enable):
+        // const checkCamera = async () => {
+        //     const result = await checkCameraResolution();
+        //     setCameraInfo(result);
+        //     setGateState(result.meetsRequirement ? 'supported' : 'unsupported');
+        // };
+        // checkCamera();
     }, []);
+
+    // Auto-scroll to "Light Reveals Everything" section after animations complete
+    // 4 items × ~1850ms each = ~7400ms, plus buffer = 8000ms
+    useEffect(() => {
+        if (gateState === 'supported') {
+            const scrollTimer = setTimeout(() => {
+                lightSectionRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }, 8000);
+            return () => clearTimeout(scrollTimer);
+        }
+    }, [gateState]);
 
     const handleContinue = () => {
         router.push('/mobile-capture');
@@ -54,7 +101,8 @@ export default function InstructionsPage() {
 
     // Camera meets requirements - show instructions
     return (
-        <div className="min-h-screen bg-black flex flex-col text-white">
+        <div className="min-h-screen bg-black flex flex-col text-white relative overflow-hidden">
+            <SpotlightBackground />
             {/* Header */}
             <div className="px-6 py-6">
                 <div className="flex items-center gap-4">
@@ -69,62 +117,27 @@ export default function InstructionsPage() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 px-8 py-12 sm:px-16 max-w-xl mx-auto w-full">
-                <div className="space-y-10">
+            <div className="flex-1 px-8 py-16 sm:px-16 max-w-xl mx-auto w-full relative z-10">
+                <div className="space-y-8">
 
-                    {/* Visual Guide (Slider) */}
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-light tracking-tight">Visual Guide</h2>
-                        <ComparisonSlider />
+                    {/* Instructions First - "How to Capture" */}
+                    <div className="space-y-6">
+                        <h2 className="text-3xl sm:text-4xl font-light text-white tracking-tight">How to Capture</h2>
+                        <ChalkboardList items={instructionItems} arrowColor="#a78bfa" />
+                    </div>
+
+                    {/* Result Preview Second */}
+                    <div ref={lightSectionRef} className="space-y-3">
+                        <h2 className="text-3xl sm:text-4xl font-light text-white tracking-tight">Light Reveals Everything</h2>
+                        <p className="text-sm text-gray-400">Point a light directly at your face—yes, really close. Trust us.</p>
+                        <ComparisonSlider compact />
                         <p className="text-xs text-gray-500 font-mono text-center">
-                            Slide to see the enhancement detail
+                            Iris before and after enough light
                         </p>
                     </div>
 
-                    {/* Steps with Icons (Visual Animations replacement) */}
-                    <div className="space-y-8">
-                        {/* Lighting */}
-                        <div className="flex gap-5 items-start">
-                            <div className="p-3 bg-gray-900 rounded-full shrink-0">
-                                <Sun className="w-6 h-6 text-white" strokeWidth={1.5} />
-                            </div>
-                            <div className="space-y-1">
-                                <h3 className="text-lg font-medium">Good Lighting</h3>
-                                <p className="text-gray-400 font-light leading-relaxed">
-                                    Avoid direct sunlight. Soft, even light is best for iris details.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Distance */}
-                        <div className="flex gap-5 items-start">
-                            <div className="p-3 bg-gray-900 rounded-full shrink-0">
-                                <Ruler className="w-6 h-6 text-white" strokeWidth={1.5} />
-                            </div>
-                            <div className="space-y-1">
-                                <h3 className="text-lg font-medium">Distance</h3>
-                                <p className="text-gray-400 font-light leading-relaxed">
-                                    Hold phone 20cm away. The app will guide you to the perfect spot.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Focus */}
-                        <div className="flex gap-5 items-start">
-                            <div className="p-3 bg-gray-900 rounded-full shrink-0">
-                                <Eye className="w-6 h-6 text-white" strokeWidth={1.5} />
-                            </div>
-                            <div className="space-y-1">
-                                <h3 className="text-lg font-medium">Eye Contact</h3>
-                                <p className="text-gray-400 font-light leading-relaxed">
-                                    Look directly at the camera lens, not the screen.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
                     {/* CTA */}
-                    <div className="pt-4">
+                    <div className="pt-2">
                         <button
                             onClick={handleContinue}
                             className="w-full bg-white text-black font-medium text-base py-4 px-6 hover:bg-gray-100 transition-colors"
@@ -134,6 +147,7 @@ export default function InstructionsPage() {
                     </div>
                 </div>
             </div>
+
         </div>
     );
 }

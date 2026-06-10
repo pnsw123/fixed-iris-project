@@ -93,6 +93,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
     // UI states
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
+    const [irisImageLoaded, setIrisImageLoaded] = useState(false);
 
     // Payment flow states
     const [showEmailModal, setShowEmailModal] = useState(false);
@@ -409,7 +410,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.12, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                     >
-                        <div className="bg-gray-900 border border-gray-800 p-8 flex items-center justify-center relative min-h-[400px] w-full overflow-hidden">
+                        <div className="bg-gray-900 border border-gray-800 p-4 flex items-center justify-center relative aspect-[4/3] w-full overflow-hidden">
                             <AnimatePresence mode="wait">
                                 {previewImage ? (
                                     /* Enhanced preview — iris unveil: circular mask expand + glitch + bloom + shimmer */
@@ -509,11 +510,35 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                                         alt="Iris capture"
                                         className="max-w-full h-auto"
                                         initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
+                                        animate={{ opacity: irisImageLoaded ? 1 : 0 }}
                                         exit={{ opacity: 0 }}
                                         transition={{ duration: 0.3 }}
                                         style={{ imageRendering: 'auto' }}
+                                        onLoad={() => setIrisImageLoaded(true)}
                                     />
+                                )}
+                            </AnimatePresence>
+
+                            {/* Loading Skeleton — shown while original iris image loads */}
+                            <AnimatePresence>
+                                {!irisImageLoaded && !previewImage && !isEnhancing && (
+                                    <motion.div
+                                        key="skeleton"
+                                        className="absolute inset-0 flex items-center justify-center"
+                                        initial={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.25 }}
+                                    >
+                                        {/* Pulsing skeleton circle mimicking iris shape */}
+                                        <div className="relative flex items-center justify-center w-full h-full">
+                                            <div className="w-2/3 aspect-square rounded-full bg-gray-800 animate-pulse" />
+                                            <div className="absolute w-1/2 aspect-square rounded-full bg-gray-700/60 animate-pulse" style={{ animationDelay: '150ms' }} />
+                                            <div className="absolute w-1/3 aspect-square rounded-full bg-gray-600/40 animate-pulse" style={{ animationDelay: '300ms' }} />
+                                            <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+                                                <div className="h-2 w-24 rounded bg-gray-700 animate-pulse" />
+                                            </div>
+                                        </div>
+                                    </motion.div>
                                 )}
                             </AnimatePresence>
 

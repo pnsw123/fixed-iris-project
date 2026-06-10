@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-
-// DEBUG MODE: Set to true to use same image for both sides (alignment test)
-const DEBUG_MODE = false;
+import { useDebugMode } from '@/hooks/useDebugMode';
 
 interface ComparisonSliderProps {
     compact?: boolean;
 }
 
 export default function ComparisonSlider({ compact = false }: ComparisonSliderProps) {
+    const isDebug = useDebugMode();
+
     const sliderRef = useRef<HTMLDivElement>(null);
     const draggingRef = useRef(false);
     const animatingRef = useRef(true);
@@ -167,7 +167,7 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
                     >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                            src={DEBUG_MODE ? "/before.png" : "/after.png"}
+                            src={isDebug ? "/before.png" : "/after.png"}
                             alt="After"
                             className="absolute left-0 top-0 h-full object-cover object-center pointer-events-none"
                             style={{

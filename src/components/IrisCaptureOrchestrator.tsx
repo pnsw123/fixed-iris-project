@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, RefreshCw, AlertCircle } from 'lucide-react';
 import { qualityAnalyzer, QualityReport } from '@/lib/qualityMetrics';
+import { useDebugMode } from '@/hooks/useDebugMode';
 
 // Minimum thresholds for capture - all must pass for 3 consecutive seconds
 const CAPTURE_THRESHOLDS = {
@@ -18,6 +19,8 @@ export default function IrisCaptureOrchestrator({
 }: {
     onCaptureComplete: (image: string) => void;
 }) {
+    const isDebug = useDebugMode();
+
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const analysisCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -376,21 +379,23 @@ export default function IrisCaptureOrchestrator({
                         </div>
                     )}
 
-                    {/* Quality metrics (debug) */}
-                    <div className="flex gap-2 text-xs text-white/70">
-                        <span className={currentReport.distance.status === 'ok' ? 'text-green-400' : currentReport.distance.status === 'warn' ? 'text-yellow-400' : 'text-red-400'}>
-                            D:{Math.round(currentReport.distance.score)}
-                        </span>
-                        <span className={currentReport.lighting.status === 'ok' ? 'text-green-400' : currentReport.lighting.status === 'warn' ? 'text-yellow-400' : 'text-red-400'}>
-                            L:{Math.round(currentReport.lighting.score)}
-                        </span>
-                        <span className={currentReport.centering.status === 'ok' ? 'text-green-400' : currentReport.centering.status === 'warn' ? 'text-yellow-400' : 'text-red-400'}>
-                            C:{Math.round(currentReport.centering.score)}
-                        </span>
-                        <span className={currentReport.focus.status === 'ok' ? 'text-green-400' : currentReport.focus.status === 'warn' ? 'text-yellow-400' : 'text-red-400'}>
-                            F:{Math.round(currentReport.focus.score)}
-                        </span>
-                    </div>
+                    {/* Quality metrics (debug only) */}
+                    {isDebug && (
+                        <div className="flex gap-2 text-xs text-white/70">
+                            <span className={currentReport.distance.status === 'ok' ? 'text-green-400' : currentReport.distance.status === 'warn' ? 'text-yellow-400' : 'text-red-400'}>
+                                D:{Math.round(currentReport.distance.score)}
+                            </span>
+                            <span className={currentReport.lighting.status === 'ok' ? 'text-green-400' : currentReport.lighting.status === 'warn' ? 'text-yellow-400' : 'text-red-400'}>
+                                L:{Math.round(currentReport.lighting.score)}
+                            </span>
+                            <span className={currentReport.centering.status === 'ok' ? 'text-green-400' : currentReport.centering.status === 'warn' ? 'text-yellow-400' : 'text-red-400'}>
+                                C:{Math.round(currentReport.centering.score)}
+                            </span>
+                            <span className={currentReport.focus.status === 'ok' ? 'text-green-400' : currentReport.focus.status === 'warn' ? 'text-yellow-400' : 'text-red-400'}>
+                                F:{Math.round(currentReport.focus.score)}
+                            </span>
+                        </div>
+                    )}
                 </div>
             )}
 

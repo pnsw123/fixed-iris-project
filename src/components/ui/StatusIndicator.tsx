@@ -1,9 +1,9 @@
 'use client';
 
-import { Eye, Lightbulb, Target, Focus } from 'lucide-react';
+import { Eye, Lightbulb, Target, Focus, Smartphone } from 'lucide-react';
 
 interface StatusIndicatorProps {
-    type: 'distance' | 'centering' | 'lighting' | 'focus';
+    type: 'distance' | 'centering' | 'lighting' | 'focus' | 'angle';
     status: 'ok' | 'warn' | 'fail';
 }
 
@@ -18,6 +18,8 @@ export default function StatusIndicator({ type, status }: StatusIndicatorProps) 
                 return <Lightbulb className="w-3.5 h-3.5" />;
             case 'focus':
                 return <Focus className="w-3.5 h-3.5" />;
+            case 'angle':
+                return <Smartphone className="w-3.5 h-3.5" />;
         }
     };
 
@@ -31,6 +33,8 @@ export default function StatusIndicator({ type, status }: StatusIndicatorProps) 
                 return 'Light';
             case 'focus':
                 return 'Focus';
+            case 'angle':
+                return 'Angle';
         }
     };
 

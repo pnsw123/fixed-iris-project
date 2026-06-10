@@ -53,6 +53,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { qualityAnalyzer, QualityReport } from '@/lib/qualityMetrics';
+import { initializePhoneAngle, getAngleState, stopPhoneAngle } from '@/lib/phoneAngle';
 import { audioFeedback } from '@/lib/audioFeedback';
 import { telemetry } from '@/lib/telemetry';
 import { useDebugMode } from '@/hooks/useDebugMode';
@@ -99,9 +100,16 @@ export default function MobileCaptureScreen({
     const [screenIrisDiameter, setScreenIrisDiameter] = useState<number>(120);
     const [isCapturing, setIsCapturing] = useState(false); // Prevent multiple captures
     const [isFocusLocked, setIsFocusLocked] = useState(false);
+    const [phoneAngleOk, setPhoneAngleOk] = useState(false);
+    const [phoneAngleAvailable, setPhoneAngleAvailable] = useState(false);
 
     // --- Compute guidance message ---
-    const computeGuidance = useCallback((report: QualityReport | null, focusLocked: boolean): string => {
+    const computeGuidance = useCallback((
+        report: QualityReport | null,
+        focusLocked: boolean,
+        angleOk: boolean,
+        angleAvailable: boolean
+    ): string => {
         if (!report || !report.irisDetected) {
             return 'Align one eye in the circle';
         }
@@ -119,6 +127,10 @@ export default function MobileCaptureScreen({
         }
         if (!focusLocked) {
             return 'Perfect focus. Hold still...';
+        }
+        // Phone angle check: only guide if orientation API is available and angle is wrong
+        if (angleAvailable && !angleOk) {
+            return 'Aim light at hairline — tilt phone back';
         }
         if (report.distance.status === 'fail') {
             return report.distance.feedback;
@@ -286,8 +298,15 @@ export default function MobileCaptureScreen({
                 if (isFocusLocked) setIsFocusLocked(false);
             }
 
+            // Phone angle check
+            const angleResult = getAngleState();
+            const isAngleOk = angleResult.state === 'optimal' || angleResult.state === 'unavailable';
+            const isAngleAvailable = angleResult.state !== 'unavailable';
+            setPhoneAngleOk(isAngleOk);
+            setPhoneAngleAvailable(isAngleAvailable);
+
             setCurrentReport(report);
-            setGuidanceMessage(computeGuidance(report, locked));
+            setGuidanceMessage(computeGuidance(report, locked, isAngleOk, isAngleAvailable));
 
             // Convert iris position from analysis canvas to screen coordinates
             if (report.irisDetected && report.irisCenter && videoRef.current) {
@@ -331,7 +350,8 @@ export default function MobileCaptureScreen({
                 report.focus.status === 'ok' &&
                 locked &&
                 report.distance.status === 'ok' && // Only start countdown when user is close enough
-                report.lighting.status !== 'fail';
+                report.lighting.status !== 'fail' &&
+                isAngleOk; // Phone angle must be correct (or unavailable = pass-through)
 
             if (isGoodForCountdown) {
                 stableGoodFramesRef.current += 1;
@@ -375,7 +395,7 @@ export default function MobileCaptureScreen({
         } catch (err) {
             console.warn('Analysis failed:', err);
         }
-    }, [isDebug, countdown, computeGuidance, isCapturing, isFocusLocked]);
+    }, [isDebug, countdown, computeGuidance, isCapturing, isFocusLocked, phoneAngleOk, phoneAngleAvailable]);
 
     const startAnalysisLoop = useCallback(() => {
 
@@ -607,6 +627,11 @@ export default function MobileCaptureScreen({
 
                 await qualityAnalyzer.initialize();
 
+                // Initialize phone angle detection (best-effort — graceful fail on desktop)
+                await initializePhoneAngle().catch((err) => {
+                    console.warn('[MobileCaptureScreen] Phone angle init failed:', err);
+                });
+
                 setIsInitializing(false);
                 startAnalysisLoop();
             } catch (err) {
@@ -624,6 +649,7 @@ export default function MobileCaptureScreen({
             mounted = false;
             stopCamera();
             stopAnalysisLoop();
+            stopPhoneAngle();
             // Clean up countdown
             if (countdownIntervalRef.current) {
                 clearInterval(countdownIntervalRef.current);
@@ -776,6 +802,12 @@ export default function MobileCaptureScreen({
                                 type="lighting"
                                 status={currentReport.lighting.status === 'ok' ? 'ok' : currentReport.lighting.status === 'warn' ? 'warn' : 'fail'}
                             />
+                            {phoneAngleAvailable && (
+                                <StatusIndicator
+                                    type="angle"
+                                    status={phoneAngleOk ? 'ok' : 'fail'}
+                                />
+                            )}
                         </div>
                     </div>
                 )}

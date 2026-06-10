@@ -163,7 +163,7 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
             </span>
             <div
                 className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[0_24px_60px_rgba(0,0,0,0.55)]"
-                style={{ height: compact ? '160px' : '280px' }}
+                style={{ height: compact ? '240px' : '280px' }}
             >
                 <div
                     ref={sliderRef}

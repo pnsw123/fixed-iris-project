@@ -24,9 +24,12 @@ if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 os.chdir(backend_dir)
 
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from rate_limit import limiter
 import numpy as np
 from PIL import Image
 import io
@@ -61,6 +64,8 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS for local development
 app.add_middleware(
@@ -162,7 +167,9 @@ async def health_check():
 
 
 @app.post("/api/v1/process-iris")
+@limiter.limit("5/minute")
 async def process_iris(
+    request: Request,
     image: UploadFile = File(...),
     return_mask: bool = Form(False),
     return_intermediate: bool = Form(False),

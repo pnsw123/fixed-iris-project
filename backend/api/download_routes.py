@@ -8,12 +8,13 @@ Endpoints:
 
 import asyncio
 import logging
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, EmailStr
 
 from services.purchase_service import purchase_service, PurchaseStatus
 from services.email_service import decode_download_token
+from rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["downloads"])
@@ -25,7 +26,8 @@ class DownloadRequest(BaseModel):
 
 
 @router.post("/api/download-hd")
-async def download_hd(request: DownloadRequest):
+@limiter.limit("10/minute")
+async def download_hd(request: Request, body: DownloadRequest):
     """
     Download HD image after payment.
     
@@ -37,8 +39,8 @@ async def download_hd(request: DownloadRequest):
         - 202 if still waiting for payment (check email)
         - 404 if token not found
     """
-    token = request.token
-    
+    token = body.token
+
     # Check if token exists
     purchase = purchase_service.get_purchase(token)
     if not purchase:

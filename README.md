@@ -2,6 +2,8 @@
 
 > Capture your iris through your camera. AI segments and upscales it 4x. Download HD.
 
+**[View the showcase →](https://pnsw123.github.io/fixed-iris-project/)** — interactive before/after, how it works, tech.
+
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)

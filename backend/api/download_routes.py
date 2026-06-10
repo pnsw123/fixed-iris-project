@@ -10,7 +10,7 @@ import asyncio
 import logging
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from services.purchase_service import purchase_service, PurchaseStatus
 from services.email_service import decode_download_token
@@ -20,9 +20,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["downloads"])
 
 
+_UUID_V4_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+
+
 class DownloadRequest(BaseModel):
     """Request body for download endpoint."""
-    token: str
+    token: str = Field(
+        min_length=36,
+        max_length=36,
+        pattern=_UUID_V4_PATTERN,
+        description="UUID v4 purchase token",
+    )
 
 
 @router.post("/api/download-hd")
@@ -290,7 +298,12 @@ async def download_from_email_link(download_token: str):
 
 class UpdatePurchaseEmailRequest(BaseModel):
     """Request body for update-purchase-email endpoint."""
-    token: str
+    token: str = Field(
+        min_length=36,
+        max_length=36,
+        pattern=_UUID_V4_PATTERN,
+        description="UUID v4 purchase token",
+    )
     email: EmailStr
 
 

@@ -42,6 +42,21 @@ import logging
 import asyncio
 
 from config import settings
+
+
+def _safe_error_msg(e: Exception) -> str:
+    """Return sanitised error message for API responses.
+
+    In production, internal exception text (which can contain model paths,
+    tensor shapes, or other server internals) is replaced with a generic
+    message and logged server-side only.  In development the full message is
+    returned as-is for easier debugging.
+    """
+    if settings.env.lower() == "production":
+        return "Processing failed"
+    return str(e)
+
+
 from services.iris_sam_service import IrisSAMService
 from services.esrgan_service import RealESRGANService
 from services.pipeline_service import IrisPipelineService
@@ -232,23 +247,26 @@ async def process_iris(
     image: UploadFile = File(...),
     return_mask: bool = Form(False),
     return_intermediate: bool = Form(False),
-    upscale_factor: int = Form(4),
     iris_x: Optional[float] = Form(None),
     iris_y: Optional[float] = Form(None),
-    crop_size: Optional[float] = Form(None),
     iris_radius: Optional[float] = Form(None)
 ):
     """
     Main endpoint: Segment iris with Iris-SAM + upscale with Real-ESRGAN.
 
+    The upscale factor is fixed at 4× by the loaded model architecture and
+    cannot be changed per-request without reloading the model.  The
+    ``upscale_factor`` and ``crop_size`` parameters have been removed from
+    the API to avoid a false contract where callers could set values that
+    were silently ignored.
+
     Parameters:
         image: Eye crop image file (JPEG, PNG, etc.)
         return_mask: Include segmentation mask in response
         return_intermediate: Include pre-upscaled iris in response
-        upscale_factor: Upscale factor (currently fixed at 4x)
         iris_x: Optional X coordinate of iris center in cropped image
         iris_y: Optional Y coordinate of iris center in cropped image
-        crop_size: Optional size of the crop for validation
+        iris_radius: Optional radius of the iris in the cropped image
 
     Returns:
         JSON response with upscaled image and metadata
@@ -409,7 +427,7 @@ async def process_iris(
             status_code=500,
             content={
                 "success": False,
-                "error": str(e),
+                "error": _safe_error_msg(e),
                 "detail": "Internal server error during processing"
             }
         )
@@ -470,7 +488,7 @@ async def segment_iris_only(image: UploadFile = File(...)):
 
         return JSONResponse(
             status_code=500,
-            content={"success": False, "error": str(e)}
+            content={"success": False, "error": _safe_error_msg(e)}
         )
 
 

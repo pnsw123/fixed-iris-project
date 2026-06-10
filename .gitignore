@@ -69,6 +69,13 @@ MANIFEST
 # ruff cache
 .ruff_cache/
 
+# Python type stubs cache
+.pytype/
+pyrightconfig.json
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
 # Python cache
 scripts/extraction/__pycache__/
 scripts/extraction/*.pyc
@@ -94,10 +101,13 @@ tribal_validation_pipeline/
 .idea/
 *.swp
 *.swo
+*.iml
 
 # OS artifacts
 Thumbs.db
 ._*
+.AppleDouble
+.LSOverride
 
 # Python virtual environments
 .venv/
@@ -127,6 +137,12 @@ backend/*.log
 docker-compose.yml
 docker-compose.override.yml
 docker-compose.local.yml
+
+# Temporary / backup files
+*.bak
+*.backup
+*.tmp
+*.temp
 
 # Secret files
 secrets.json

@@ -116,13 +116,15 @@ coverage.xml
 # SSL certificates (security risk)
 .cert/
 
-# AI session plan artifacts (Claude Code orchestrator)
-.claude/fix-*-plan.md
+# Claude Code session artifacts (all internal — settings, memory, hooks, plan files)
+.claude/
+!.claude/CLAUDE.md
 
 # Runtime logs in subdirectories
 backend/*.log
 
-# Docker Compose (may contain secrets)
+# Docker Compose (may contain secrets or local overrides)
+docker-compose.yml
 docker-compose.override.yml
 docker-compose.local.yml
 

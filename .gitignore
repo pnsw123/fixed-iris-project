@@ -49,14 +49,22 @@ public/models/**
 backend/models/**
 public/test_iris_sharp.png
 
-# Ignore Desktop folder (parent directory)
-/../Desktop/
-/../110/
-/../HTML/
-/../Project/
 
 # Tribal extraction output
 tribal_extraction_output/
+
+# Python distribution / packaging
+*.egg-info/
+*.egg
+dist/
+MANIFEST
+*.whl
+
+# mypy cache
+.mypy_cache/
+
+# ruff cache
+.ruff_cache/
 
 # Python cache
 scripts/extraction/__pycache__/

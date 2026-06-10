@@ -491,6 +491,45 @@ mkcert -key-file .cert/localhost-key.pem \
 
 ---
 
+## 🧪 Running Tests
+
+### Frontend
+
+```bash
+npm test           # run once
+npm run test:watch # watch mode
+```
+
+### Backend
+
+```bash
+cd backend
+source venv/bin/activate          # Windows: venv\Scripts\activate
+pytest                            # all tests
+pytest -m "not integration"       # unit tests only
+```
+
+### Test structure
+
+| Layer | Location | Runner |
+|-------|----------|--------|
+| Frontend unit | `src/tests/` | Vitest |
+| Backend unit | `backend/tests/` | pytest |
+| E2E | `e2e/` (planned) | Playwright |
+
+---
+
+## 🤝 Contributing
+
+1. **Fork** the repo and create a feature branch: `git checkout -b feat/your-feature`
+2. **Make changes** — follow the existing code style
+3. **Add tests** — every new function or component needs a corresponding test file
+4. **Open a PR** — CI must pass (type-check, lint, unit tests) before merge
+
+> Pull requests with failing CI will not be merged. Run `npm test` (frontend) and `pytest` (backend) locally before pushing.
+
+---
+
 ## 📄 License
 
 Private repository — All rights reserved.

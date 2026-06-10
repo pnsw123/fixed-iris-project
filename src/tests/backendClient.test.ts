@@ -23,7 +23,7 @@ describe('BackendClient — HTTPS defaults (#87)', () => {
 
       await client.healthCheck();
 
-      const calledUrl = fetchSpy.mock.calls[0][0] as string;
+      const calledUrl = fetchSpy.mock.calls[0]![0] as string;
       expect(calledUrl).toMatch(/^https:\/\//);
       expect(calledUrl).not.toMatch(/^http:\/\//);
 

@@ -380,7 +380,7 @@ export class StageManager {
     private advanceStage() {
         const currentIndex = STAGE_ORDER.indexOf(this.currentStage);
         if (currentIndex < STAGE_ORDER.length - 1) {
-            this.currentStage = STAGE_ORDER[currentIndex + 1];
+            this.currentStage = STAGE_ORDER[currentIndex + 1]!;
             this.stageStartTime = Date.now();
             console.log('[StageManager] Advanced to stage:', this.currentStage);
         }

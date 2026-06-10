@@ -47,7 +47,7 @@ export default function ChalkboardList({
             setTimeout(() => {
                 setAnimationStates(prev => {
                     const next = [...prev];
-                    next[index] = { ...next[index], circle: true };
+                    next[index] = { ...next[index]!, circle: true };
                     return next;
                 });
             }, rowStart);
@@ -56,7 +56,7 @@ export default function ChalkboardList({
             setTimeout(() => {
                 setAnimationStates(prev => {
                     const next = [...prev];
-                    next[index] = { ...next[index], underline: true };
+                    next[index] = { ...next[index]!, underline: true };
                     return next;
                 });
             }, rowStart + CIRCLE_DURATION + UNDERLINE_DELAY);
@@ -65,7 +65,7 @@ export default function ChalkboardList({
             setTimeout(() => {
                 setAnimationStates(prev => {
                     const next = [...prev];
-                    next[index] = { ...next[index], icon: true };
+                    next[index] = { ...next[index]!, icon: true };
                     return next;
                 });
             }, rowStart + CIRCLE_DURATION + UNDERLINE_DELAY + UNDERLINE_DURATION + ICON_DELAY);

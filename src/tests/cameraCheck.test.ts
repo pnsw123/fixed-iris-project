@@ -17,12 +17,12 @@ import { checkCameraResolution, MIN_MEGAPIXELS } from '../lib/cameraCheck';
 // ---------------------------------------------------------------------------
 
 function makeMockTrack(options: {
-    widthMax?: number;
-    heightMax?: number;
-    settingsWidth?: number;
-    settingsHeight?: number;
-    label?: string;
-    hasCapabilities?: boolean;
+    widthMax?: number | undefined;
+    heightMax?: number | undefined;
+    settingsWidth?: number | undefined;
+    settingsHeight?: number | undefined;
+    label?: string | undefined;
+    hasCapabilities?: boolean | undefined;
 }) {
     const {
         widthMax,

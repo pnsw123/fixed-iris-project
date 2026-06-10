@@ -131,8 +131,8 @@ export class FaceLandmarkerDetector {
 
             // MediaPipe Face Landmarker includes iris landmarks (468-477)
             // Left iris: 468-472, Right iris: 473-477
-            const landmarks = result.faceLandmarks[0];
-            
+            const landmarks = result.faceLandmarks[0]!;
+
             // Extract iris data directly from MediaPipe's iris landmarks
             const leftIris = this.extractIrisFromLandmarks(landmarks, 468, width, height, 'LEFT');
             const rightIris = this.extractIrisFromLandmarks(landmarks, 473, width, height, 'RIGHT');
@@ -150,7 +150,7 @@ export class FaceLandmarkerDetector {
                 eyebrows: null, // Not needed for iris capture
                 faceBounds,
                 landmarks: landmarks.map(l => ({ x: l.x * width, y: l.y * height })),
-                irisCropBox
+                ...(irisCropBox !== undefined ? { irisCropBox } : {})
             };
 
         } catch (e) {
@@ -187,9 +187,10 @@ export class FaceLandmarkerDetector {
             }
 
             // Pixel-space landmarks for more accurate center/crop
+            // Non-null assertion safe: .every() guard above ensures all lm are defined
             const irisPixels = irisLandmarks.map(lm => ({
-                x: lm.x * width,
-                y: lm.y * height
+                x: lm!.x * width,
+                y: lm!.y * height
             }));
 
             // Use MediaPipe's dedicated centre landmark (index 0) directly.
@@ -199,14 +200,14 @@ export class FaceLandmarkerDetector {
             // visible points.  The centre landmark (index 0) is placed by the model
             // independently of the boundary points, so it remains stable even with
             // partial occlusion.
-            const centerX = irisPixels[IRIS_LANDMARKS.CENTER].x;
-            const centerY = irisPixels[IRIS_LANDMARKS.CENTER].y;
+            const centerX = irisPixels[IRIS_LANDMARKS.CENTER]!.x;
+            const centerY = irisPixels[IRIS_LANDMARKS.CENTER]!.y;
 
             // Calculate diameter from boundary points
-            const top = irisPixels[IRIS_LANDMARKS.TOP].y;
-            const bottom = irisPixels[IRIS_LANDMARKS.BOTTOM].y;
-            const left = irisPixels[IRIS_LANDMARKS.LEFT].x;
-            const right = irisPixels[IRIS_LANDMARKS.RIGHT].x;
+            const top = irisPixels[IRIS_LANDMARKS.TOP]!.y;
+            const bottom = irisPixels[IRIS_LANDMARKS.BOTTOM]!.y;
+            const left = irisPixels[IRIS_LANDMARKS.LEFT]!.x;
+            const right = irisPixels[IRIS_LANDMARKS.RIGHT]!.x;
 
             const verticalDiameter = Math.abs(bottom - top);
             const horizontalDiameter = Math.abs(right - left);

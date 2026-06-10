@@ -147,14 +147,12 @@ export class QualityAnalyzer {
                 irisDetected: false,
                 irisCenter: { x: 0, y: 0 },
                 irisDiameter: 0,
-                distance: { score: 0, status: 'fail', feedback: 'No face detected' },
-                lighting: { score: 0, status: 'fail', feedback: 'No face detected' },
-                centering: { score: 0, status: 'fail', feedback: 'No face detected' },
-                focus: { score: 0, status: 'fail', feedback: 'No face detected' },
+                distance: { score: 0, status: 'fail' as const, feedback: 'No face detected' },
+                lighting: { score: 0, status: 'fail' as const, feedback: 'No face detected' },
+                centering: { score: 0, status: 'fail' as const, feedback: 'No face detected' },
+                focus: { score: 0, status: 'fail' as const, feedback: 'No face detected' },
                 rawBrightness: 0,
                 centeringRatio: 1,
-                landmarks: undefined,
-                irisCropBox: undefined
             };
         }
 
@@ -321,7 +319,7 @@ export class QualityAnalyzer {
                 const data = imageData.data;
                 let totalLum = 0;
                 for (let i = 0; i < data.length; i += 4) {
-                    totalLum += (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+                    totalLum += (0.299 * data[i]! + 0.587 * data[i + 1]! + 0.114 * data[i + 2]!);
                 }
                 rawBrightness = totalLum / (data.length / 4);
             }
@@ -370,8 +368,8 @@ export class QualityAnalyzer {
             centeringRatio,
             focusVariance: focusScore,
 
-            landmarks: result.landmarks,
-            irisCropBox: result.irisCropBox
+            ...(result.landmarks !== undefined ? { landmarks: result.landmarks } : {}),
+            ...(result.irisCropBox !== undefined ? { irisCropBox: result.irisCropBox } : {}),
         };
     }
 
@@ -390,9 +388,9 @@ export class QualityAnalyzer {
         const { width, height, data } = imageData;
         const gray = new Float32Array(width * height);
         for (let i = 0; i < width * height; i++) {
-            const r = data[i * 4];
-            const g = data[i * 4 + 1];
-            const b = data[i * 4 + 2];
+            const r = data[i * 4]!;
+            const g = data[i * 4 + 1]!;
+            const b = data[i * 4 + 2]!;
             gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
         }
 
@@ -403,13 +401,13 @@ export class QualityAnalyzer {
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 const idx = y * width + x;
-                const center = gray[idx];
+                const center = gray[idx]!;
                 const lap =
                     4 * center -
-                    gray[idx - 1] -
-                    gray[idx + 1] -
-                    gray[idx - width] -
-                    gray[idx + width];
+                    gray[idx - 1]! -
+                    gray[idx + 1]! -
+                    gray[idx - width]! -
+                    gray[idx + width]!;
                 sum += lap;
                 sumSq += lap * lap;
                 count++;
@@ -459,9 +457,9 @@ export class QualityAnalyzer {
         let totalIntensity = 0;
         
         for (let i = 0; i < width * height; i++) {
-            const r = data[i * 4];
-            const g = data[i * 4 + 1];
-            const b = data[i * 4 + 2];
+            const r = data[i * 4]!;
+            const g = data[i * 4 + 1]!;
+            const b = data[i * 4 + 2]!;
             const val = 0.299 * r + 0.587 * g + 0.114 * b;
             gray[i] = val;
             totalIntensity += val;
@@ -482,9 +480,9 @@ export class QualityAnalyzer {
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 const idx = y * width + x;
-                const center = gray[idx];
+                const center = gray[idx]!;
                 // 4-connected Laplacian
-                const lap = 4 * center - gray[idx - 1] - gray[idx + 1] - gray[idx - width] - gray[idx + width];
+                const lap = 4 * center - gray[idx - 1]! - gray[idx + 1]! - gray[idx - width]! - gray[idx + width]!;
                 lapSum += lap;
                 lapSumSq += lap * lap;
                 count++;
@@ -492,20 +490,20 @@ export class QualityAnalyzer {
         }
 
         if (count === 0) return 0;
-        
+
         const lapMean = lapSum / count;
         const lapVariance = lapSumSq / count - lapMean * lapMean;
 
         // Method 2: Gradient magnitude (Sobel-like)
         let gradientSum = 0;
-        
+
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 const idx = y * width + x;
                 // Horizontal gradient
-                const gx = gray[idx + 1] - gray[idx - 1];
+                const gx = gray[idx + 1]! - gray[idx - 1]!;
                 // Vertical gradient
-                const gy = gray[idx + width] - gray[idx - width];
+                const gy = gray[idx + width]! - gray[idx - width]!;
                 // Gradient magnitude
                 gradientSum += Math.sqrt(gx * gx + gy * gy);
             }

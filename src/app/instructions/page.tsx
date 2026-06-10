@@ -97,7 +97,7 @@ export default function InstructionsPage() {
 
     // Camera doesn't meet requirements
     if (gateState === 'unsupported') {
-        return <UnsupportedDeviceScreen cameraInfo={cameraInfo || undefined} />;
+        return <UnsupportedDeviceScreen {...(cameraInfo ? { cameraInfo } : {})} />;
     }
 
     // Camera meets requirements - show instructions

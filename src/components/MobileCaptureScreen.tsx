@@ -539,9 +539,9 @@ export default function MobileCaptureScreen({
             const { width, height, data } = imageData;
             const gray = new Float32Array(width * height);
             for (let i = 0; i < width * height; i++) {
-                const r = data[i * 4];
-                const g = data[i * 4 + 1];
-                const b = data[i * 4 + 2];
+                const r = data[i * 4]!;
+                const g = data[i * 4 + 1]!;
+                const b = data[i * 4 + 2]!;
                 gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
             }
 
@@ -551,8 +551,8 @@ export default function MobileCaptureScreen({
             for (let yy = 1; yy < height - 1; yy++) {
                 for (let xx = 1; xx < width - 1; xx++) {
                     const idx = yy * width + xx;
-                    const center = gray[idx];
-                    const lap = 4 * center - gray[idx - 1] - gray[idx + 1] - gray[idx - width] - gray[idx + width];
+                    const center = gray[idx]!;
+                    const lap = 4 * center - gray[idx - 1]! - gray[idx + 1]! - gray[idx - width]! - gray[idx + width]!;
                     sum += lap;
                     sumSq += lap * lap;
                     count++;

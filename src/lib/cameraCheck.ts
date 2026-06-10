@@ -31,7 +31,7 @@ export async function checkCameraResolution(): Promise<CameraCapabilities> {
             }
         });
 
-        const track = stream.getVideoTracks()[0];
+        const track = stream.getVideoTracks()[0]!;
         const settings = track.getSettings();
         const capabilities = track.getCapabilities?.() || {};
 

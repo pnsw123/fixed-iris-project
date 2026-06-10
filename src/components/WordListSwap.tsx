@@ -75,7 +75,7 @@ const WordListSwap = forwardRef<WordListSwapRef, WordListSwapProps>(
         const [currentTextIndex, setCurrentTextIndex] = useState(0);
 
         const elements = useMemo(() => {
-            const currentText = texts[currentTextIndex];
+            const currentText = texts[currentTextIndex]!;
             if (splitBy === "characters") {
                 const text = currentText.split(" ");
                 return text.map((word, i) => ({

@@ -4,7 +4,7 @@
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
-![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)
 ![License](https://img.shields.io/badge/License-Private-red)
 ![CI](https://github.com/pnsw123/fixed-iris-project/actions/workflows/ci.yml/badge.svg)
 
@@ -26,7 +26,7 @@
 | Component | Technology |
 |-----------|------------|
 | Frontend | Next.js 16, TypeScript, TailwindCSS |
-| Backend | FastAPI 0.115, Python 3.11, Uvicorn |
+| Backend | FastAPI 0.115, Python 3.12, Uvicorn |
 | AI Models | Iris-SAM (SAM fine-tuned), Real-ESRGAN x4v3 |
 | Detection | MediaPipe Face Mesh |
 | Payments | Lemon Squeezy |
@@ -46,7 +46,7 @@
                      │ HTTPS
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Next.js 14  (Vercel)                                           │
+│  Next.js 16  (Vercel)                                           │
 │  /capture → /result pages                                       │
 │  Forwards iris frame to FastAPI, renders watermarked preview    │
 └────────────────────┬───────────────────────────┬────────────────┘
@@ -149,7 +149,7 @@ mkdir -p backend/models
 
 | File | Download | Description |
 |------|----------|-------------|
-| `IrisSAM_model.pt` | [HuggingFace — Iris-SAM](https://huggingface.co/) | Fine-tuned SAM for iris segmentation |
+| `IrisSAM_model.pt` | HuggingFace — Iris-SAM *(link TBD)* | Fine-tuned SAM for iris segmentation |
 | `sam_vit_b_01ec64.pth` | [Meta SAM releases](https://github.com/facebookresearch/segment-anything#model-checkpoints) | SAM ViT-B base checkpoint |
 | `realesr-general-x4v3.pth` | [Real-ESRGAN releases](https://github.com/xinntao/Real-ESRGAN/releases) | Real-ESRGAN x4 upscaler |
 
@@ -444,6 +444,171 @@ Before deploying to any public environment, verify every item below. Several def
 4. **Preview** → 360p watermarked preview shown immediately (free)
 5. **Purchase** → Lemon Squeezy checkout ($2.99)
 6. **Download** → HD image delivered via Lemon Squeezy webhook → email link
+
+---
+
+## 🎯 Guided Capture Flow (4-Stage UX)
+
+The core differentiator is a MediaPipe-driven **4-stage quality gate** that runs in-browser at ~10 fps. Each stage must pass before the shutter fires. Below is a stage-by-stage breakdown of what the user sees and what the system checks.
+
+---
+
+### Stage 1 — Distance Guidance
+
+```
+┌──────────────────────────────────┐
+│  ┌────────────────────────────┐  │
+│  │                            │  │
+│  │      ◯  (iris target)      │  │   Overlay: "Move Closer"
+│  │                            │  │            "Move Back"
+│  │   👁️  ← iris too small    │  │            "Perfect Distance ✓"
+│  │                            │  │
+│  └────────────────────────────┘  │
+│  Stage 1/4  ░░░░░░░░░░  0%       │
+└──────────────────────────────────┘
+```
+
+**What MediaPipe checks:** Iris diameter must be 8–12% of frame height (≈ 58–130 px on 720p–1080p).
+
+**Pass condition:** Iris held in range for **800 ms** continuous. A hysteresis margin (±2%) prevents the timer from resetting on micro-movements.
+
+| Iris size | Message shown |
+|-----------|--------------|
+| < 8% frame height | "Move Closer" |
+| 8–12% frame height | "Perfect Distance" → progress bar fills |
+| > 12% frame height | "Move Back" |
+
+---
+
+### Stage 2 — Eyebrow Liveness Check
+
+```
+┌──────────────────────────────────┐
+│  ┌────────────────────────────┐  │
+│  │                            │  │
+│  │   🤨 ← eyebrows raised    │  │   Overlay: "Raise Your Eyebrows"
+│  │      ◯  (iris target)      │  │            "Hold Them Raised..."
+│  │       👁️                  │  │            "Good! Keep Going ✓"
+│  └────────────────────────────┘  │
+│  Stage 2/4  ████░░░░░░  40%      │
+└──────────────────────────────────┘
+```
+
+**What MediaPipe checks:** Face Mesh eyebrow landmark Y-coordinate displacement versus neutral resting position.
+
+**Pass condition:** Eyebrows raised for **30 consecutive frames** (~2 s at 15 fps). Counter resets to 0 if they drop at any point.
+
+**Why this exists:** Anti-spoofing — a printed photo cannot raise eyebrows. Lightweight liveness check that runs entirely in-browser with no server round-trip.
+
+| State | Message shown |
+|-------|--------------|
+| Eyebrows neutral | "Raise Your Eyebrows" |
+| Raised, frames 1–15 | "Hold Them Raised..." |
+| Raised, frames 15–29 | "Good! Keep Going" → progress bar fills |
+| Confirmed (frame 30) | Stage advances automatically |
+
+---
+
+### Stage 3 — Centering, Focus & Brightness
+
+```
+┌──────────────────────────────────┐
+│  ┌────────────────────────────┐  │
+│  │         ●                  │  │
+│  │    ╔════╧════╗             │  │   Overlay: "Center Your Eye"
+│  │    ║  👁️   ║             │  │            "Tap to Focus"
+│  │    ╚═════════╝             │  │            "Move to Better Light"
+│  │       ◯ target             │  │            "Almost Ready..."
+│  └────────────────────────────┘  │
+│  ┌──────────────────────────────┐│
+│  │ Center ✓  Focus ✓  Light ✓  ││  All 3 indicators must go green
+│  └──────────────────────────────┘│
+│  Stage 3/4  ████████░░  80%      │
+└──────────────────────────────────┘
+```
+
+**All 3 conditions must pass simultaneously:**
+
+| Indicator | Threshold | How measured |
+|-----------|-----------|-------------|
+| **Center** | Iris centre ≤ 30% of half-short-side from frame centre | Face Mesh iris landmark position |
+| **Focus** | Laplacian variance score ≥ 8 | `getImageData` → variance of edge filter on iris crop |
+| **Brightness** | Mean luma 60–200 (0–255 scale) | Pixel average of iris crop region |
+
+**Pass condition:** All three pass simultaneously for **800 ms**. Any single failure resets the clock. Hysteresis margins (brightness ±10 luma, centering ±5%) prevent resets on imperceptible fluctuations.
+
+**Feedback priority — centering > focus > lighting:**
+> Centering is shown first (most immediately actionable — just move the camera). Focus second (tap screen or hold still). Lighting last — requires changing environment.
+
+---
+
+### Stage 4 — Countdown & Auto-Capture
+
+```
+┌──────────────────────────────────┐
+│  ┌────────────────────────────┐  │
+│  │                            │  │
+│  │      ◯  (iris target)      │  │
+│  │         3... 2... 1...     │  │   Countdown: 3 → 2 → 1
+│  │           👁️  ✓           │  │   Audio tick each second
+│  │                            │  │   "Hold Still!"
+│  └────────────────────────────┘  │
+│  Stage 4/4  ██████████  100%     │
+└──────────────────────────────────┘
+                   ↓
+         📸 Shutter fires
+         Camera stops
+         Frame sent to FastAPI
+```
+
+**Behaviour:** Quality conditions are **re-checked every frame** during countdown. If any condition degrades (blink, movement, lighting change), countdown **immediately aborts** and the stage machine regresses to the failed stage — preventing blurry or off-centre captures.
+
+---
+
+### Complete Stage State Machine
+
+```
+User opens /capture
+       │
+       ▼
+ ┌─────────────────────────────────────────────────────┐
+ │  STAGE 1: Distance                                  │
+ │  Iris diameter 8–12% of frame height for 800 ms     │
+ └─────────────┬───────────────────────────────────────┘
+               │  PASS
+               ▼
+ ┌─────────────────────────────────────────────────────┐
+ │  STAGE 2: Eyebrow Liveness Check                    │
+ │  Both eyebrows raised for 30 consecutive frames     │
+ └─────────────┬───────────────────────────────────────┘
+               │  PASS
+               ▼
+ ┌─────────────────────────────────────────────────────┐
+ │  STAGE 3: Final Checks                              │
+ │  Centering + Focus + Brightness all pass for 800 ms │
+ └─────────────┬───────────────────────────────────────┘
+               │  PASS
+               ▼
+ ┌─────────────────────────────────────────────────────┐
+ │  STAGE 4: Countdown 3-2-1                           │
+ │  Aborts immediately if any quality condition drops  │
+ └─────────────┬───────────────────────────────────────┘
+               │  COMPLETE
+               ▼
+        📸 Capture fires
+        → FastAPI: Iris-SAM segmentation + Real-ESRGAN 4x
+        → Watermarked 360p preview returned
+        → /result page
+```
+
+> **To add a screen recording:** Run locally, record with QuickTime, then convert:
+> ```bash
+> ffmpeg -i recording.mov -vf "fps=10,scale=360:-1" docs/capture-stages/capture-flow.gif
+> ```
+> Place the GIF at `docs/capture-stages/capture-flow.gif` and reference it here:
+> ```markdown
+> ![Capture Flow](docs/capture-stages/capture-flow.gif)
+> ```
 
 ---
 

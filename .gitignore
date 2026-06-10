@@ -121,3 +121,13 @@ coverage.xml
 
 # Runtime logs in subdirectories
 backend/*.log
+
+# Docker Compose (may contain secrets)
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Secret files
+secrets.json
+credentials.json
+*.secret
+*.credentials

@@ -94,25 +94,22 @@ async def download_hd(request: Request, body: DownloadRequest):
 
 
 @router.get("/api/download-status/{token}")
-async def check_download_status(token: str):
+@limiter.limit("20/minute")
+async def check_download_status(request: Request, token: str):
     """
     Check if a purchase is ready for download.
     Frontend can poll this while showing a loading state.
+
+    Returns only {"ready": bool} to avoid leaking purchase existence,
+    email presence, or internal timing state to unauthenticated callers.
     """
     purchase = purchase_service.get_purchase(token)
-    
+
     if not purchase:
-        return JSONResponse(
-            {"status": "not_found"},
-            status_code=404
-        )
-    
-    return {
-        "status": purchase.status.value,
-        "ready": purchase.status == PurchaseStatus.PAID,
-        "has_email": bool(purchase.user_email),
-        "time_remaining": purchase.time_remaining
-    }
+        # Return same shape as found-but-not-ready to prevent token enumeration.
+        return JSONResponse({"ready": False}, status_code=200)
+
+    return {"ready": purchase.status == PurchaseStatus.PAID}
 
 
 @router.get("/d/{download_token}")

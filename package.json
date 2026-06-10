@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "AI-powered iris segmentation and 4x upscaling platform — MediaPipe + Iris-SAM + Real-ESRGAN",
-  "homepage": "https://github.com/pnsw123/fixed-iris-project",
+  "homepage": "https://eyedentity.vercel.app",
   "repository": {
     "type": "git",
     "url": "https://github.com/pnsw123/fixed-iris-project"

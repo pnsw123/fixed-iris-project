@@ -50,6 +50,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { qualityAnalyzer, QualityReport } from '@/lib/qualityMetrics';
 import { audioFeedback } from '@/lib/audioFeedback';
@@ -793,14 +794,21 @@ export default function MobileCaptureScreen({
                 {!isInitializing && (
                     <div className="pointer-events-none pb-28 px-6">
                         <div className="text-center">
-                            <p
-                                role="status"
-                                aria-live="polite"
-                                aria-atomic="true"
-                                className="text-base font-light text-white drop-shadow-lg"
-                            >
-                                {guidanceMessage}
-                            </p>
+                            <AnimatePresence mode="wait">
+                                <motion.p
+                                    key={guidanceMessage}
+                                    role="status"
+                                    aria-live="polite"
+                                    aria-atomic="true"
+                                    className="text-base font-light text-white drop-shadow-lg"
+                                    initial={{ opacity: 0, y: 4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -4 }}
+                                    transition={{ duration: 0.15 }}
+                                >
+                                    {guidanceMessage}
+                                </motion.p>
+                            </AnimatePresence>
                         </div>
                     </div>
                 )}

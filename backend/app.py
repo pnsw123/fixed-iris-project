@@ -131,8 +131,6 @@ async def startup_event():
         raise
 
 
-import asyncio
-
 async def cleanup_expired_purchases():
     """Background task to clean up expired purchases."""
     while True:
@@ -252,9 +250,6 @@ async def process_iris(
         preview_b64 = numpy_to_base64(preview_image_arr, format='PNG')
         
         # Encode HD image to bytes for storage (not base64)
-        import io
-        from PIL import Image
-        
         # Convert HD numpy array to PNG bytes
         if len(full_image_arr.shape) == 3 and full_image_arr.shape[2] == 4:
             hd_pil = Image.fromarray(full_image_arr.astype(np.uint8), mode='RGBA')

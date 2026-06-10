@@ -164,10 +164,5 @@ async def lemon_squeezy_webhook(request: Request):
 
 @router.get("/api/webhooks/health")
 async def webhook_health():
-    """Health check for webhook endpoint."""
-    stats = purchase_service.get_stats()
-    return {
-        "status": "ok",
-        "webhook_secret_configured": bool(settings.lemonsqueezy_webhook_secret),
-        "purchases": stats
-    }
+    """Health check for webhook endpoint. Returns minimal status only — no internal data."""
+    return {"status": "ok"}

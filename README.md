@@ -149,9 +149,11 @@ mkdir -p backend/models
 
 | File | Download | Description |
 |------|----------|-------------|
-| `IrisSAM_model.pt` | HuggingFace — Iris-SAM *(link TBD)* | Fine-tuned SAM for iris segmentation |
+| `IrisSAM_model.pt` | **Not yet publicly released.** Contact the maintainer to request weights, or train your own using the [SAM fine-tuning guide](https://github.com/facebookresearch/segment-anything#fine-tuning) on an iris segmentation dataset (e.g. [UBIRIS.v2](http://iris.di.ubi.pt/) or [MICHE-I](http://biplab.unina.it/miche/)). Place the trained `.pt` file at `backend/models/IrisSAM_model.pt`. | Fine-tuned SAM for iris segmentation |
 | `sam_vit_b_01ec64.pth` | [Meta SAM releases](https://github.com/facebookresearch/segment-anything#model-checkpoints) | SAM ViT-B base checkpoint |
 | `realesr-general-x4v3.pth` | [Real-ESRGAN releases](https://github.com/xinntao/Real-ESRGAN/releases) | Real-ESRGAN x4 upscaler |
+
+> **Tip:** Run `bash scripts/download_models.sh` to automatically download `sam_vit_b_01ec64.pth` and `realesr-general-x4v3.pth`. You still need to source `IrisSAM_model.pt` manually (see above).
 
 After downloading:
 

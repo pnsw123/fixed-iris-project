@@ -1,3 +1,63 @@
+/**
+ * ReviewScreen.tsx — Post-capture review, AI enhancement, and purchase/download flow.
+ *
+ * ## Responsibility
+ * Receives a validated `CaptureData` payload from `MobileCaptureScreen`, sends it
+ * to the Python backend for Iris-SAM segmentation + Real-ESRGAN 4× upscaling, and
+ * manages the complete purchase-to-download lifecycle. It is the only component
+ * that talks directly to the backend payment and download APIs.
+ *
+ * ## Key flows
+ *
+ * ### Enhancement flow
+ * ```
+ * mount → health-check backend → user taps "Enhance"
+ *       → POST /api/process-iris  (Iris-SAM + ESRGAN)
+ *       → receive { preview_image, purchase_token }
+ *       → display watermarked 360p preview
+ * ```
+ *
+ * ### Purchase / download state machine
+ * ```
+ * "Download HD" tapped
+ *   → email modal (collect + validate email)
+ *   → store { token, email } in localStorage (crash recovery)
+ *   → LEMONSQUEEZY_CHECKOUT_URL set?
+ *       YES → open Lemon Squeezy checkout in new tab
+ *             downloadStatus = 'pending'
+ *             user completes payment externally
+ *             user returns → taps "Download" buttons
+ *             → POST /api/download-demo + /api/download-original-demo
+ *       NO  → demo mode: skip payment, downloadStatus = 'success'
+ *             download buttons unlocked immediately
+ * ```
+ *
+ * ### Crash-recovery flow
+ * On mount, `localStorage['eyedentity_purchase']` is checked. If a previous
+ * session stored a token (e.g. page was refreshed mid-checkout), the component
+ * immediately retries `POST /api/download-hd` to resume the download without
+ * requiring the user to re-authenticate.
+ *
+ * ## Non-obvious design decisions
+ * - **Two-phase dual download** (`attemptDownload`): both blobs are fetched in
+ *   parallel first, then both `<a>` clicks are fired within 100 ms of each other.
+ *   Fetching and clicking simultaneously would trigger mobile popup-blockers;
+ *   fetching first and then clicking avoids that.
+ * - **`purchaseToken` is server-side session key**: the backend stores the
+ *   processed image against the token. The client never holds the full HD image
+ *   in memory — only a 360p watermarked preview. This prevents trivial bypass by
+ *   inspecting network responses.
+ * - **`emailVerified` flag** (not payment-verified): gates the download buttons
+ *   on email collection only, not on confirmed payment. Actual payment enforcement
+ *   happens server-side when the Lemon Squeezy webhook updates the token's status.
+ * - **`BACKEND_URL` resolution**: uses `window.location.hostname` at runtime
+ *   rather than a static env var so the same build works on both localhost and
+ *   any remote host (e.g. an IP address on the local network during device testing).
+ *
+ * ## Props
+ * - `captureData: CaptureData` — cropped iris image + metadata from capture screen
+ * - `onRetake` — called when the user taps "Retake"; parent resets to capture screen
+ */
 'use client';
 
 import { useState, useEffect } from 'react';

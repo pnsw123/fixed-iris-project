@@ -1,3 +1,52 @@
+/**
+ * MobileCaptureScreen.tsx — Primary iris capture screen; orchestrates camera,
+ * real-time quality analysis, focus-lock, and auto-capture countdown.
+ *
+ * ## Responsibility
+ * This component is the single entry point for all iris image acquisition.
+ * It owns the full lifecycle from camera permission request through to a
+ * validated, cropped CaptureData payload handed to the parent.
+ *
+ * ## Capture state machine
+ * ```
+ * init → camera-start → analysis-loop ──► focus-lock (800 ms)
+ *                                                │
+ *                                      ┌─── conditions good? ───┐
+ *                                      │  (focus + distance +   │
+ *                                      │   centering + light)   │
+ *                                      ▼                        │
+ *                              countdown 3-2-1                  │ (conditions
+ *                                      │                        │  degrade)
+ *                                      ▼                  abort countdown ◄┘
+ *                              capture & stop camera
+ * ```
+ * Countdown aborts immediately if any quality condition degrades — prevents
+ * blurry captures when the user blinks or moves mid-countdown.
+ *
+ * ## Non-obvious design decisions
+ * - **Focus lock via ref, not state**: `focusLockAccumRef` accumulates elapsed
+ *   milliseconds instead of frame counts so the threshold is time-stable across
+ *   devices with different rAF rates. Using a ref (not state) avoids triggering
+ *   a re-render on every frame tick.
+ * - **Analysis capped at 10 fps** (100 ms gate inside a `requestAnimationFrame`
+ *   loop): balances MediaPipe accuracy against battery/thermal on mobile.
+ * - **Coordinate mapping**: iris center is detected on a downscaled analysis
+ *   canvas (480×640 or 640×480 depending on orientation). Coordinates are mapped
+ *   back through three transforms — analysis → native video → CSS display —
+ *   and then mirrored horizontally to match the `scaleX(-1)` front-camera CSS.
+ * - **Separate analysis canvas** (`analysisCanvasRef`): never shown in DOM;
+ *   created with `{ willReadFrequently: true }` to keep `getImageData` on the
+ *   CPU path and avoid GPU readback stalls.
+ * - **Debug mode** (via `useDebugMode` hook / `?debug=1` URL param): renders a
+ *   lime dot at the iris center and a red rectangle around the crop box directly
+ *   on the analysis canvas, visible as a picture-in-picture overlay.
+ *
+ * ## Props
+ * - `onBack` — called when the user taps the back arrow; parent returns to landing
+ * - `onCaptureComplete(captureData: CaptureData)` — called once after a successful
+ *   capture; payload contains base-64 cropped image, iris coordinates, crop size,
+ *   and iris radius for downstream AI processing
+ */
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';

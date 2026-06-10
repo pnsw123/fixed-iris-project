@@ -191,6 +191,44 @@ class TestWebhookIdempotency:
         assert service.is_webhook_processed('evt-A') is True
         assert service.is_webhook_processed('evt-B') is False
 
+    def test_marking_same_event_twice_is_idempotent(self, service: PurchaseService):
+        """Duplicate calls must not raise and must not double-count."""
+        service.mark_webhook_processed('evt-dup')
+        service.mark_webhook_processed('evt-dup')
+        assert service.is_webhook_processed('evt-dup') is True
+        stats = service.get_stats()
+        assert stats['webhook_ids_tracked'] == 1
+
+    def test_bounded_set_evicts_oldest_entries(self, service: PurchaseService):
+        """Set must not grow beyond _MAX_WEBHOOK_IDS; oldest entries evicted."""
+        store: MemoryPurchaseStore = service._store  # type: ignore[assignment]
+        cap = store._MAX_WEBHOOK_IDS
+
+        # Fill to cap
+        for i in range(cap):
+            store.mark_webhook_processed(f'evt-{i}')
+
+        assert len(store._processed_webhook_ids) == cap
+
+        # The very first event should still be present (at cap, not yet evicted)
+        assert store.is_webhook_processed('evt-0') is True
+
+        # Adding one more should evict the oldest (evt-0)
+        store.mark_webhook_processed(f'evt-{cap}')
+        assert len(store._processed_webhook_ids) == cap
+        assert store.is_webhook_processed('evt-0') is False
+        assert store.is_webhook_processed(f'evt-{cap}') is True
+
+    def test_bounded_set_never_exceeds_cap(self, service: PurchaseService):
+        """Inserting 2x cap entries must keep set at exactly cap."""
+        store: MemoryPurchaseStore = service._store  # type: ignore[assignment]
+        cap = store._MAX_WEBHOOK_IDS
+
+        for i in range(cap * 2):
+            store.mark_webhook_processed(f'overflow-evt-{i}')
+
+        assert len(store._processed_webhook_ids) == cap
+
 
 # ---------------------------------------------------------------------------
 # cleanup_expired

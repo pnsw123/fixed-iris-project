@@ -22,9 +22,10 @@ import logging
 import threading
 import base64
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Dict, Set
+from typing import Optional, Dict
 from enum import Enum
 
 from config import settings
@@ -180,9 +181,17 @@ class PurchaseStore(ABC):
 class MemoryPurchaseStore(PurchaseStore):
     """In-memory store. Fast for dev; lost on any restart."""
 
+    # Maximum number of webhook event IDs to retain in memory.
+    # Oldest entries are evicted once this cap is reached, preventing
+    # unbounded growth in long-running processes.
+    _MAX_WEBHOOK_IDS = 10_000
+
     def __init__(self) -> None:
         self._purchases: Dict[str, PendingPurchase] = {}
-        self._processed_webhook_ids: Set[str] = set()
+        # OrderedDict used as an insertion-ordered bounded set.
+        # Keys = event_id strings, values = True (sentinel).
+        # Oldest entries (first inserted) are dropped when cap is exceeded.
+        self._processed_webhook_ids: OrderedDict[str, bool] = OrderedDict()
         self._lock = threading.Lock()
         logger.warning(
             "PurchaseService using IN-MEMORY storage. "
@@ -246,7 +255,14 @@ class MemoryPurchaseStore(PurchaseStore):
 
     def mark_webhook_processed(self, event_id: str) -> None:
         with self._lock:
-            self._processed_webhook_ids.add(event_id)
+            if event_id in self._processed_webhook_ids:
+                # Move to end (most-recently-seen) so it's last to be evicted.
+                self._processed_webhook_ids.move_to_end(event_id)
+                return
+            self._processed_webhook_ids[event_id] = True
+            # Evict oldest entries to stay within the memory cap.
+            while len(self._processed_webhook_ids) > self._MAX_WEBHOOK_IDS:
+                self._processed_webhook_ids.popitem(last=False)
 
     def cleanup_expired(self) -> int:
         with self._lock:
@@ -316,7 +332,15 @@ class RedisPurchaseStore(PurchaseStore):
         return self._key("purchase", "index")
 
     def _webhook_key(self) -> str:
+        """Shared SET key — kept for backwards-compat reads; no longer written."""
         return self._key("webhook", "processed")
+
+    def _webhook_event_key(self, event_id: str) -> str:
+        """Per-event-id key with TTL. Preferred over the shared SET."""
+        return self._key("webhook", "event", event_id)
+
+    # TTL for per-event idempotency keys: 72 hours covers any Stripe replay window.
+    _WEBHOOK_EVENT_TTL = 72 * 3600
 
     # --- Internal helpers ---------------------------------------------------
 
@@ -417,10 +441,21 @@ class RedisPurchaseStore(PurchaseStore):
         return True
 
     def is_webhook_processed(self, event_id: str) -> bool:
+        # Check the per-event key first (new path).  Fall back to the legacy
+        # shared SET so events recorded by older code are still honoured.
+        if self._redis.exists(self._webhook_event_key(event_id)):
+            return True
         return bool(self._redis.sismember(self._webhook_key(), event_id))
 
     def mark_webhook_processed(self, event_id: str) -> None:
-        self._redis.sadd(self._webhook_key(), event_id)
+        # Write a short-lived per-event key.  NX means "only set if absent",
+        # which is atomic and safe under concurrent webhook deliveries.
+        self._redis.set(
+            self._webhook_event_key(event_id),
+            b"1",
+            ex=self._WEBHOOK_EVENT_TTL,
+            nx=True,
+        )
 
     def cleanup_expired(self) -> int:
         """
@@ -459,12 +494,17 @@ class RedisPurchaseStore(PurchaseStore):
                 pending += 1
             elif meta.get("status") == PurchaseStatus.PAID.value:
                 paid += 1
-        webhook_count = self._redis.scard(self._webhook_key())
+        # Per-event keys have individual TTLs; we can't cheaply count them
+        # without a SCAN (expensive).  Report the legacy shared-SET count for
+        # any IDs recorded before this fix, plus a note that new IDs use
+        # per-key storage and are not included in this count.
+        legacy_webhook_count = self._redis.scard(self._webhook_key())
         return {
             "total": total,
             "pending": pending,
             "paid": paid,
-            "webhook_ids_tracked": webhook_count,
+            "webhook_ids_tracked": int(legacy_webhook_count),
+            "webhook_ids_note": "New events use per-key TTL storage; count reflects legacy SET only.",
             "backend": "redis",
         }
 

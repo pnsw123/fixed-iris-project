@@ -41,37 +41,41 @@ export default function ChalkboardList({
     // ROW_TOTAL_TIME is derived from local constants — intentionally excluded from deps
     /* eslint-disable react-hooks/exhaustive-deps */
     useEffect(() => {
+        const ids: ReturnType<typeof setTimeout>[] = [];
+
         items.forEach((_, index) => {
             // Each row starts after all previous rows complete
             const rowStart = INITIAL_DELAY + (ROW_TOTAL_TIME * index);
 
             // 1. Show circle
-            setTimeout(() => {
+            ids.push(setTimeout(() => {
                 setAnimationStates(prev => {
                     const next = [...prev];
                     next[index] = { ...next[index]!, circle: true };
                     return next;
                 });
-            }, rowStart);
+            }, rowStart));
 
             // 2. Show underline (after circle finishes)
-            setTimeout(() => {
+            ids.push(setTimeout(() => {
                 setAnimationStates(prev => {
                     const next = [...prev];
                     next[index] = { ...next[index]!, underline: true };
                     return next;
                 });
-            }, rowStart + CIRCLE_DURATION + UNDERLINE_DELAY);
+            }, rowStart + CIRCLE_DURATION + UNDERLINE_DELAY));
 
             // 3. Show icon (after underline finishes) - THIS MUST FINISH BEFORE NEXT ROW STARTS
-            setTimeout(() => {
+            ids.push(setTimeout(() => {
                 setAnimationStates(prev => {
                     const next = [...prev];
                     next[index] = { ...next[index]!, icon: true };
                     return next;
                 });
-            }, rowStart + CIRCLE_DURATION + UNDERLINE_DELAY + UNDERLINE_DURATION + ICON_DELAY);
+            }, rowStart + CIRCLE_DURATION + UNDERLINE_DELAY + UNDERLINE_DURATION + ICON_DELAY));
         });
+
+        return () => ids.forEach(clearTimeout);
     }, [items]);
     /* eslint-enable react-hooks/exhaustive-deps */
 
@@ -83,7 +87,7 @@ export default function ChalkboardList({
                     <div className="shrink-0 w-10 h-10 flex items-center justify-center text-lg font-semibold text-white">
                         <RoughNotation
                             type="circle"
-                            show={animationStates[index]?.circle || false}
+                            show={animationStates[index]?.circle ?? false}
                             color={arrowColor}
                             strokeWidth={2}
                             padding={8}
@@ -99,7 +103,7 @@ export default function ChalkboardList({
                         <div className="flex items-center gap-3">
                             <RoughNotation
                                 type="underline"
-                                show={animationStates[index]?.underline || false}
+                                show={animationStates[index]?.underline ?? false}
                                 color={arrowColor}
                                 strokeWidth={2}
                                 padding={2}
@@ -114,7 +118,7 @@ export default function ChalkboardList({
                             <div
                                 className="flex items-center ml-4"
                                 style={{
-                                    opacity: animationStates[index]?.icon ? 1 : 0,
+                                    opacity: (animationStates[index]?.icon === true) ? 1 : 0,
                                     transition: 'opacity 0.4s ease-out'
                                 }}
                             >

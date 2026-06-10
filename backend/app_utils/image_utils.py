@@ -5,7 +5,12 @@ import cv2
 from PIL import Image
 import base64
 import io
+from pathlib import Path
 from typing import Union
+
+# Bundled font — works on all platforms (macOS, Linux, Windows)
+_FONTS_DIR = Path(__file__).parent / "fonts"
+_BUNDLED_FONT = _FONTS_DIR / "DejaVuSans.ttf"
 
 
 def numpy_to_base64(img_array: np.ndarray, format: str = 'PNG') -> str:
@@ -123,12 +128,9 @@ def add_watermark(img_array: np.ndarray, text: str = "EYEDENTITY") -> np.ndarray
     font_size = max(w // 8, 10)
     
     try:
-        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-    except:
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
+        font = ImageFont.truetype(str(_BUNDLED_FONT), font_size)
+    except Exception:
+        font = ImageFont.load_default()
     
     # 4. Measure Text to Center
     bbox = draw.textbbox((0, 0), text, font=font)

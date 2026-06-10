@@ -33,6 +33,85 @@
 
 ---
 
+## 🏗️ Architecture
+
+### Component Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Browser (Mobile / Desktop)                                     │
+│  MediaPipe Face Mesh — real-time iris detection & quality gate  │
+└────────────────────┬────────────────────────────────────────────┘
+                     │ HTTPS
+                     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Next.js 14  (Vercel)                                           │
+│  /capture → /result pages                                       │
+│  Forwards iris frame to FastAPI, renders watermarked preview    │
+└────────────────────┬───────────────────────────┬────────────────┘
+     POST /api/v1/process-iris                   │ Checkout redirect
+                     │                           ▼
+                     ▼                  ┌─────────────────┐
+┌────────────────────────────────┐      │  Lemon Squeezy  │
+│  FastAPI 0.115  (Railway/Render│      │  (payment)      │
+│  ┌──────────────────────────┐  │      └────────┬────────┘
+│  │ GPU Semaphore (asyncio)  │  │               │ HMAC-signed
+│  │ — serialises AI workload │  │               │ webhook POST
+│  │ — prevents OOM on GPU    │  │               ▼
+│  └──────────┬───────────────┘  │  POST /api/v1/webhook/lemonsqueezy
+│             │                  │      │
+│  Iris-SAM segmentation         │      │ verified → stores purchase_token
+│  Real-ESRGAN 4x upscale        │      │
+│             │                  │      ▼
+│  returns:   │  preview_image   │  ┌──────────────────────────────┐
+│             │  purchase_token  │  │  SendGrid                    │
+│             └──────────────────┘  │  JWT-signed download link    │
+│                                   │  (48 h expiry, email only)   │
+└───────────────────────────────────┴──────────────────────────────┘
+```
+
+### Purchase & Delivery Sequence
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Next.js
+    participant FastAPI
+    participant LemonSqueezy
+    participant SendGrid
+
+    Browser->>Next.js: Capture iris frame
+    Next.js->>FastAPI: POST /api/v1/process-iris
+    FastAPI->>FastAPI: Acquire GPU semaphore
+    FastAPI->>FastAPI: Iris-SAM segmentation
+    FastAPI->>FastAPI: Real-ESRGAN 4x upscale
+    FastAPI->>FastAPI: Release GPU semaphore
+    FastAPI-->>Next.js: preview_image + purchase_token
+    Next.js-->>Browser: Watermarked 360p preview
+
+    Browser->>LemonSqueezy: Checkout ($2.99)
+    LemonSqueezy->>FastAPI: POST webhook (HMAC-SHA256 signed)
+    FastAPI->>FastAPI: Verify HMAC signature
+    FastAPI->>FastAPI: Check idempotency (no double-process)
+    FastAPI->>FastAPI: Resolve purchase_token → HD image
+    FastAPI->>SendGrid: Send JWT download link (48 h)
+    SendGrid-->>Browser: Email with HD download URL
+    Browser->>Next.js: GET /api/download?token=<jwt>
+    Next.js-->>Browser: Full-resolution HD iris image
+```
+
+### Key Design Decisions
+
+| Decision | Reason |
+|---|---|
+| **GPU semaphore** | SAM + ESRGAN together require ~4 GB VRAM. Semaphore (capacity=1) serialises requests — prevents OOM crashes under concurrent load. |
+| **purchase_token** | Opaque short-lived token ties a specific processed iris to a payment. Backend resolves token → HD bytes only after webhook confirms payment. |
+| **HMAC-signed webhook** | Rejects any unsigned or tampered webhook from LemonSqueezy — prevents fraudulent HD image delivery. |
+| **JWT download link** | Stateless, expiring (48 h), email-delivered. User can re-download without re-purchasing within the window. |
+| **Watermarked 360p preview** | Free tier — gives user confidence in the result before paying. Never exposes HD pixels pre-payment. |
+
+---
+
 ## 🚀 Quick Start (Local Development)
 
 ### Prerequisites

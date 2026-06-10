@@ -5,6 +5,7 @@ import {
     useEffect,
     useImperativeHandle,
     useMemo,
+    useRef,
     useState,
 } from "react";
 import {
@@ -176,12 +177,39 @@ const WordListSwap = forwardRef<WordListSwapRef, WordListSwapProps>(
             [next, previous, jumpTo, reset],
         );
 
+        const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
         useEffect(() => {
             if (!auto) {
                 return;
             }
-            const intervalId = setInterval(next, rotationInterval);
-            return () => clearInterval(intervalId);
+
+            const start = () => {
+                if (intervalRef.current !== null) return;
+                intervalRef.current = setInterval(next, rotationInterval);
+            };
+
+            const stop = () => {
+                if (intervalRef.current === null) return;
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            };
+
+            const handleVisibilityChange = () => {
+                if (document.hidden) {
+                    stop();
+                } else {
+                    start();
+                }
+            };
+
+            start();
+            document.addEventListener("visibilitychange", handleVisibilityChange);
+
+            return () => {
+                stop();
+                document.removeEventListener("visibilitychange", handleVisibilityChange);
+            };
         }, [next, rotationInterval, auto]);
 
         return (

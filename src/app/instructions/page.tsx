@@ -116,6 +116,7 @@ export default function InstructionsPage() {
             }, 8000);
             return () => clearTimeout(scrollTimer);
         }
+        return;
     }, [gateState]);
 
     const handleContinue = () => {

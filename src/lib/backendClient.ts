@@ -41,23 +41,21 @@
  *   `irisRadius` (optional) lets the backend derive a tighter crop region before
  *   running SAM, further reducing GPU memory consumption.
  *
- * ── purchase_token contract ────────────────────────────────────────────────────
+ * ── session_token contract ─────────────────────────────────────────────────────
  *
- *   The `/api/v1/process-iris` endpoint returns a `purchase_token` in its response
- *   JSON.  This token is a server-side opaque reference to the HD (non-watermarked)
- *   upscaled image stored temporarily on the backend.
+ *   The `/api/v1/process-iris` endpoint returns a `purchase_token` (session key) in
+ *   its response JSON. This token is a server-side reference to the processed image
+ *   stored temporarily on the backend.
  *
- *   CRITICAL INVARIANT: once the frontend receives a `purchase_token` it MUST NOT
- *   call `/api/v1/process-iris` again for the same capture.  Re-processing wastes
- *   GPU time and invalidates the token.  The correct flow is:
+ *   CRITICAL INVARIANT: once the frontend receives a token it MUST NOT call
+ *   `/api/v1/process-iris` again for the same capture — re-processing wastes GPU time.
  *
- *     1. Receive `purchase_token` from this client.
- *     2. Show the watermarked `preview_image` (already in the response) to the user.
- *     3. Pass `purchase_token` to the payment flow (Stripe / in-app purchase).
- *     4. After confirmed payment, exchange the token at `/api/v1/redeem-token` to
- *        retrieve the full-resolution image.
+ *   Flow (free, no payment):
+ *     1. Receive token from this client.
+ *     2. Display the preview_image to the user.
+ *     3. Pass token to `/api/download-demo` and `/api/download-original-demo`.
  *
- *   The token is single-use and expires after 30 minutes of server inactivity.
+ *   The token expires after 30 minutes of server inactivity.
  *
  * ── HTTP error codes ──────────────────────────────────────────────────────────
  *
@@ -88,8 +86,7 @@ export interface ProcessIrisResponse {
   original_size?: [number, number];
   upscaled_size?: [number, number];
   preview_image?: string;    // Watermarked low-res preview (base64 data URL)
-  purchase_token?: string;   // Token to unlock HD image (after payment)
-  // upscaled_image removed - now accessed via purchase_token after payment
+  purchase_token?: string;   // Session token — passed to download endpoints
   mask?: string;
   intermediate_iris?: string;
   metadata?: {

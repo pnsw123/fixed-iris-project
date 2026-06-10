@@ -9,7 +9,7 @@ Handles:
 
 import logging
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from config import settings
@@ -32,7 +32,7 @@ def create_download_token(image_token: str, order_id: str, hours: int = 48) -> s
     payload = {
         "image_token": image_token,
         "order_id": order_id,
-        "exp": datetime.utcnow() + timedelta(hours=hours)
+        "exp": datetime.now(tz=timezone.utc) + timedelta(hours=hours)
     }
     
     return jwt.encode(payload, settings.jwt_secret_key, algorithm="HS256")

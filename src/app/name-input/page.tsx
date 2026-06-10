@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import AppHeader from '@/components/AppHeader';
 
 export default function NameInputPage() {
     const router = useRouter();
@@ -35,17 +36,7 @@ export default function NameInputPage() {
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
             {/* Header */}
-            <div className="border-b border-gray-800 px-6 py-4">
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => router.back()}
-                        className="p-2 -ml-2 hover:bg-gray-900 rounded-full transition-colors"
-                    >
-                        <ArrowLeft className="w-5 h-5 text-gray-400" />
-                    </button>
-                    <span className="text-sm font-mono text-gray-400 tracking-wider">IDENTITY</span>
-                </div>
-            </div>
+            <AppHeader title="IDENTITY" showBack />
 
             {/* Main Content */}
             <div className="flex-1 px-6 py-12 max-w-lg mx-auto w-full">

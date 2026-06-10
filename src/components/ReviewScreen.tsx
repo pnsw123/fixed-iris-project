@@ -61,6 +61,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Download, RotateCcw, Sparkles, Wifi, WifiOff, Mail, X, Loader2 } from 'lucide-react';
 import { backendClient } from '@/lib/backendClient';
 import { CaptureData } from './MobileCaptureScreen';
@@ -398,33 +399,88 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                 <div className="max-w-4xl w-full space-y-8">
                     {/* Image Preview */}
                     <div className="flex flex-col items-center">
-                        <div className="bg-gray-900 border border-gray-800 p-8 flex items-center justify-center relative min-h-[400px] w-full">
-                            <img
-                                src={previewImage || irisCrop}
-                                alt="Iris capture"
-                                className="max-w-full h-auto"
-                                style={{ imageRendering: previewImage ? 'crisp-edges' : 'auto' }}
-                            />
+                        <div className="bg-gray-900 border border-gray-800 p-8 flex items-center justify-center relative min-h-[400px] w-full overflow-hidden">
+                            <AnimatePresence mode="wait">
+                                {previewImage ? (
+                                    /* Enhanced preview — dramatic reveal */
+                                    <motion.div
+                                        key="enhanced"
+                                        className="relative"
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        transition={{ duration: 0.7, ease: 'easeOut' }}
+                                    >
+                                        <motion.img
+                                            src={previewImage}
+                                            alt="Enhanced iris"
+                                            className="max-w-full h-auto"
+                                            style={{ imageRendering: 'crisp-edges' }}
+                                        />
+                                        {/* Shimmer sweep — fires once on reveal */}
+                                        <motion.div
+                                            className="pointer-events-none absolute inset-0"
+                                            initial={{ x: '-100%', opacity: 0.6 }}
+                                            animate={{ x: '200%', opacity: 0 }}
+                                            transition={{ duration: 1.1, ease: 'easeInOut', delay: 0.2 }}
+                                            style={{
+                                                background:
+                                                    'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%)',
+                                            }}
+                                        />
+                                    </motion.div>
+                                ) : (
+                                    /* Original capture */
+                                    <motion.img
+                                        key="original"
+                                        src={irisCrop}
+                                        alt="Iris capture"
+                                        className="max-w-full h-auto"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        style={{ imageRendering: 'auto' }}
+                                    />
+                                )}
+                            </AnimatePresence>
 
                             {/* Enhancement Progress Overlay */}
-                            {isEnhancing && (
-                                <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center">
-                                    <div className="text-center space-y-4">
-                                        <Sparkles className="w-12 h-12 text-emerald-500 mx-auto animate-pulse" />
-                                        <div className="space-y-1">
-                                            <p className="text-base font-medium text-white">Processing...</p>
-                                            <p className="text-sm font-mono text-gray-400">AI Enhancement in progress</p>
+                            <AnimatePresence>
+                                {isEnhancing && (
+                                    <motion.div
+                                        key="enhancing-overlay"
+                                        className="absolute inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                    >
+                                        <div className="text-center space-y-4">
+                                            <Sparkles className="w-12 h-12 text-emerald-500 mx-auto animate-pulse" />
+                                            <div className="space-y-1">
+                                                <p className="text-base font-medium text-white">Processing...</p>
+                                                <p className="text-sm font-mono text-gray-400">AI Enhancement in progress</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            )}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
                             {/* Watermark indicator */}
-                            {previewImage && (
-                                <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs font-mono text-gray-400">
-                                    Preview 360p (Watermarked)
-                                </div>
-                            )}
+                            <AnimatePresence>
+                                {previewImage && (
+                                    <motion.div
+                                        key="watermark"
+                                        className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs font-mono text-gray-400"
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.8, duration: 0.3 }}
+                                    >
+                                        Preview 360p (Watermarked)
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </div>
 

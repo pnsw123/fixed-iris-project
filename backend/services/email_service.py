@@ -7,19 +7,14 @@ Handles:
 3. Async sending (fire and forget)
 """
 
-import os
 import logging
 import jwt
 from datetime import datetime, timedelta
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+from config import settings
 
-# Environment variables (set these in .env)
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
-BASE_URL = os.getenv("BASE_URL", "https://localhost:3000")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "downloads@eyedentity.com")
+logger = logging.getLogger(__name__)
 
 
 def create_download_token(image_token: str, order_id: str, hours: int = 48) -> str:
@@ -40,7 +35,7 @@ def create_download_token(image_token: str, order_id: str, hours: int = 48) -> s
         "exp": datetime.utcnow() + timedelta(hours=hours)
     }
     
-    return jwt.encode(payload, JWT_SECRET_KEY, algorithm="HS256")
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm="HS256")
 
 
 def decode_download_token(token: str) -> Optional[dict]:
@@ -51,7 +46,7 @@ def decode_download_token(token: str) -> Optional[dict]:
         Decoded payload dict, or None if invalid/expired
     """
     try:
-        return jwt.decode(token, JWT_SECRET_KEY, algorithms=["HS256"])
+        return jwt.decode(token, settings.jwt_secret_key, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
         logger.warning("Download token expired")
         return None
@@ -76,13 +71,13 @@ async def send_download_email(
     Returns:
         True if email sent successfully
     """
-    if not SENDGRID_API_KEY:
+    if not settings.sendgrid_api_key:
         logger.warning("SENDGRID_API_KEY not configured - skipping email")
         return False
-    
+
     # Create signed download URL
     download_jwt = create_download_token(image_token, order_id)
-    download_url = f"{BASE_URL}/d/{download_jwt}"
+    download_url = f"{settings.base_url}/d/{download_jwt}"
     
     # Email HTML template
     html_content = f"""
@@ -207,7 +202,7 @@ async def send_download_email(
             response = await client.post(
                 "https://api.sendgrid.com/v3/mail/send",
                 headers={
-                    "Authorization": f"Bearer {SENDGRID_API_KEY}",
+                    "Authorization": f"Bearer {settings.sendgrid_api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
@@ -215,7 +210,7 @@ async def send_download_email(
                         "to": [{"email": to_email}]
                     }],
                     "from": {
-                        "email": FROM_EMAIL,
+                        "email": settings.from_email,
                         "name": "Eyedentity"
                     },
                     "subject": "Your Eyedentity HD Iris Image 👁️",

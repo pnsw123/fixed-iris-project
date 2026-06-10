@@ -36,6 +36,19 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
+    # Email — SendGrid
+    sendgrid_api_key: str = ""
+    from_email: str = "downloads@eyedentity.com"
+
+    # Auth — JWT
+    jwt_secret_key: str = "dev-secret-key-change-in-production"
+
+    # Payment — Lemon Squeezy
+    lemonsqueezy_webhook_secret: str = ""
+
+    # Server — public base URL (used in download links)
+    base_url: str = "https://localhost:3000"
+
     class Config:
         env_file = ".env"
         case_sensitive = False

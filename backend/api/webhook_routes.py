@@ -5,7 +5,6 @@ This is the SOURCE OF TRUTH for payment confirmations.
 Never trust client-side payment events.
 """
 
-import os
 import hmac
 import hashlib
 import asyncio
@@ -13,15 +12,12 @@ import logging
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 
+from config import settings
 from services.purchase_service import purchase_service
 from services.email_service import send_download_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["webhooks"])
-
-# Lemon Squeezy webhook signing secret
-# Set this in .env after configuring webhook in LS dashboard
-WEBHOOK_SECRET = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
 
 
 def verify_signature(payload: bytes, signature: str) -> bool:
@@ -30,13 +26,13 @@ def verify_signature(payload: bytes, signature: str) -> bool:
     
     LS signs webhooks with HMAC-SHA256 using the webhook secret.
     """
-    if not WEBHOOK_SECRET:
+    if not settings.lemonsqueezy_webhook_secret:
         # STRICT: Reject if secret not configured (prevents forged webhooks)
         logger.error("LEMONSQUEEZY_WEBHOOK_SECRET not configured - rejecting webhook")
         return False
-    
+
     expected = hmac.new(
-        WEBHOOK_SECRET.encode(),
+        settings.lemonsqueezy_webhook_secret.encode(),
         payload,
         hashlib.sha256
     ).hexdigest()
@@ -170,6 +166,6 @@ async def webhook_health():
     stats = purchase_service.get_stats()
     return {
         "status": "ok",
-        "webhook_secret_configured": bool(WEBHOOK_SECRET),
+        "webhook_secret_configured": bool(settings.lemonsqueezy_webhook_secret),
         "purchases": stats
     }

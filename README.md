@@ -104,7 +104,7 @@ sequenceDiagram
 
 | Decision | Reason |
 |---|---|
-| **GPU semaphore** | SAM + ESRGAN together require ~4 GB VRAM. Semaphore (capacity=1) serialises requests — prevents OOM crashes under concurrent load. |
+| **GPU semaphore** | SAM + ESRGAN together require ~4 GB VRAM. `asyncio.Semaphore(1)` serialises AI requests per worker — prevents OOM crashes under concurrent load. Queued requests **wait**, they do not fail. Scope is per-worker process: two Uvicorn workers = two semaphores = two concurrent GPU ops. For true global serialisation across multiple workers/replicas, replace with a distributed lock (e.g. Redis `SET NX`). |
 | **purchase_token** | Opaque short-lived token ties a specific processed iris to a payment. Backend resolves token → HD bytes only after webhook confirms payment. |
 | **HMAC-signed webhook** | Rejects any unsigned or tampered webhook from LemonSqueezy — prevents fraudulent HD image delivery. |
 | **JWT download link** | Stateless, expiring (48 h), email-delivered. User can re-download without re-purchasing within the window. |
@@ -390,6 +390,30 @@ mkcert -key-file .cert/localhost-key.pem \
 ```
 
 > `.cert/` is gitignored — each developer generates their own local certs.
+
+---
+
+## 🚦 Production Checklist
+
+Before deploying to any public environment, verify every item below. Several defaults are intentionally insecure for local dev — they will silently break production if left unchanged.
+
+| Check | Risk if skipped | What to do |
+|---|---|---|
+| `JWT_SECRET_KEY` | All download tokens are forgeable — anyone can craft a valid link | Generate with `openssl rand -hex 32`; set as env var. **Never use the default `dev-secret-key-change-in-production`.** |
+| `PURCHASE_BACKEND` | Purchases lost on every restart/redeploy | Set to `redis` and provide `REDIS_URL`. The default `memory` store is process-local — it does not survive crashes, deploys, or scaling. |
+| `DEVICE` | Backend fails to start or runs on wrong hardware | `mps` is Apple Silicon only. Set to `cuda` (NVIDIA GPU) or `cpu` (no GPU). Wrong value causes model-load error at startup. |
+| `CORS_ORIGINS` | Any origin can call your API | Set to your actual frontend domain only (e.g. `["https://yourapp.com"]`). Remove all `localhost` entries. |
+| GPU semaphore scope | Concurrent GPU use across workers → OOM | `asyncio.Semaphore(1)` in `app.py` serialises per **worker process**. Multi-worker deploy (e.g. `--workers 4`) has one semaphore per worker — up to N concurrent GPU ops. For true global serialisation, add a Redis-backed distributed lock around the AI pipeline. Single-worker deploy needs no change. |
+| HTTPS | Camera API hard-refuses HTTP | All frontend and backend URLs must use `https://`. MediaPipe `getUserMedia` is blocked by browsers on plain HTTP. |
+| `LEMONSQUEEZY_WEBHOOK_SECRET` | Unsigned webhooks accepted — fake payments possible | Must be set to the HMAC secret from Lemon Squeezy dashboard. Backend rejects unsigned requests only when this is set. |
+| `SENDGRID_API_KEY` | Email delivery silently fails | Must be a live key from [app.sendgrid.com](https://app.sendgrid.com). Sender domain must be verified in SendGrid. |
+| `BASE_URL` | Download links in emails point to localhost | Set to public frontend URL (e.g. `https://yourapp.com`) so email links work from any device. |
+
+> **Quick secret generation:**
+> ```bash
+> openssl rand -hex 32   # JWT_SECRET_KEY
+> openssl rand -hex 32   # any other secret you need
+> ```
 
 ---
 

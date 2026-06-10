@@ -1,5 +1,7 @@
 'use client';
 
+import { AnimatePresence, motion } from 'motion/react';
+
 interface IrisTargetProps {
     detected: boolean;
     centered: boolean;
@@ -123,18 +125,29 @@ export default function IrisTarget({
             </svg>
 
             {/* Countdown number */}
-            {countdown !== null && countdown > 0 && (
-                <div
-                    className="absolute text-4xl font-light text-white animate-pulse"
-                    style={{
-                        left: `${targetX}px`,
-                        top: `${targetY}px`,
-                        transform: 'translate(-50%, -50%)'
-                    }}
-                >
-                    {countdown}
-                </div>
-            )}
+            <div
+                className="absolute"
+                style={{
+                    left: `${targetX}px`,
+                    top: `${targetY}px`,
+                    transform: 'translate(-50%, -50%)'
+                }}
+            >
+                <AnimatePresence mode="wait">
+                    {countdown !== null && countdown > 0 && (
+                        <motion.span
+                            key={countdown}
+                            initial={{ scale: 2, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.5, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                            className="block text-4xl font-light text-white"
+                        >
+                            {countdown}
+                        </motion.span>
+                    )}
+                </AnimatePresence>
+            </div>
         </div>
     );
 }

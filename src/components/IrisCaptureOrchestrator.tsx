@@ -1,3 +1,75 @@
+/**
+ * IrisCaptureOrchestrator.tsx — Legacy iris-capture component; superseded by
+ * MobileCaptureScreen. Retained as a lean reference implementation.
+ *
+ * ## Active component vs this file
+ * `MobileCaptureScreen` is the component used in the live user flow
+ * (`/capture` and `/mobile-capture` routes). That component adds:
+ *   - Motion animations (Framer Motion)
+ *   - Audio feedback (`audioFeedback` lib)
+ *   - Telemetry (`telemetry` lib)
+ *   - Iris-target overlay (`IrisTarget` UI component)
+ *   - Structured `CaptureData` payload (cropped image, iris coords, crop size,
+ *     iris radius) for downstream AI processing
+ *
+ * `IrisCaptureOrchestrator` predates all of the above. It emits a raw
+ * base-64 JPEG string via `onCaptureComplete(image: string)` and has no
+ * overlay animations. It is **not imported by any route** and should not be
+ * used in new code.
+ *
+ * ## CAPTURE_THRESHOLDS — value rationale
+ * ```
+ * minDistanceScore:  60   Eye must be close enough for iris texture detail.
+ *                         Below 60 the iris occupies too few pixels for reliable
+ *                         feature extraction.
+ * minLightingScore:  50   Permissive floor — accepts typical indoor ambient
+ *                         light. Lower would accept silhouettes; higher would
+ *                         reject fluorescent offices.
+ * minCenteringScore: 35   Intentionally low: the oval guide is decorative, so
+ *                         requiring strict centering frustrates users. The iris
+ *                         detector tolerates off-centre placement well.
+ * minFocusScore:     80   Highest bar in the set. Blur is the primary cause of
+ *                         failed downstream AI matches — a sharp image at 60
+ *                         distance beats a blurry image at 80 distance every
+ *                         time.
+ * requiredStableSeconds: 3  Three consecutive seconds where every metric stays
+ *                            above its threshold. Prevents accidental captures
+ *                            from momentary spikes in quality scores.
+ * ```
+ *
+ * ## countdownAbortRef — abort mechanism
+ * `countdownAbortRef` is a `useRef<boolean>` (not state) that acts as an
+ * escape hatch for the async `performCapture` countdown loop.
+ *
+ * Problem: `performCapture` is an `async` function that drives a 3-2-1
+ * countdown with `await new Promise(setTimeout, 100)` checks. If the
+ * continuous quality-analysis loop (running in a separate `requestAnimationFrame`
+ * cycle) detects that quality has dropped, it cannot cancel the awaited promise
+ * by setting React state — state updates are batched and won't be observed
+ * synchronously inside an already-running async function.
+ *
+ * Solution: the quality loop sets `countdownAbortRef.current = true`.
+ * `performCapture` polls this ref every 100 ms inside its countdown loop and
+ * returns early (abandoning the capture) as soon as the flag is raised. This
+ * guarantees sub-100 ms abort latency without introducing a shared mutable
+ * state race condition.
+ *
+ * Reset points: `countdownAbortRef.current` is cleared to `false` at the start
+ * of every new `performCapture` call and in `handleRetake`, so a stale abort
+ * flag never blocks the next capture attempt.
+ *
+ * ## performCapture flow
+ * 1. Guard: skip if already capturing.
+ * 2. Set `isCapturing = true`, initialise countdown at 3.
+ * 3. For each countdown tick (3 → 1): wait 1 s in 100 ms sub-steps, checking
+ *    `countdownAbortRef` and re-running quality analysis each sub-step.
+ *    Abort if flag raised or quality drops.
+ * 4. Draw final frame to `canvasRef`, run one last quality check.
+ * 5. Export JPEG via `canvas.toDataURL`, call `onCaptureComplete`.
+ *
+ * @param onCaptureComplete - Called once with a base-64 JPEG data-URL after a
+ *   successful, quality-validated capture.
+ */
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';

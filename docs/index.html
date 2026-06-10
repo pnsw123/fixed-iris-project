@@ -51,6 +51,13 @@
   .pill{font-size:12.5px;color:var(--muted);border:1px solid var(--line);
     padding:6px 13px;border-radius:999px;background:var(--bg2)}
   .pill b{color:var(--accent);font-weight:600}
+  .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+  .btn-primary{display:inline-flex;align-items:center;gap:9px;background:var(--ink);color:#000;
+    font-weight:600;font-size:15px;padding:13px 26px;border-radius:11px;transition:.2s}
+  .btn-primary:hover{background:var(--accent);color:#fff;transform:translateY(-1px)}
+  .btn-ghost{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:15px;
+    padding:13px 22px;border:1px solid var(--line);border-radius:11px;transition:.2s}
+  .btn-ghost:hover{color:var(--ink);border-color:var(--accent)}
 
   /* before/after slider */
   .ba-section{padding:36px 0 80px}
@@ -133,9 +140,15 @@
     <span class="pill">Guided capture</span>
     <span class="pill">Free · no account</span>
   </div>
+  <div class="hero-cta">
+    <a class="btn-primary" href="https://github.com/pnsw123/fixed-iris-project#run-it-locally">
+      Get Started — run it locally →
+    </a>
+    <a class="btn-ghost" href="#compare">See before / after ↓</a>
+  </div>
 </div></header>
 
-<section class="ba-section"><div class="wrap">
+<section class="ba-section" id="compare"><div class="wrap">
   <div class="ba-head"><h2>Drag to compare — raw capture vs AI-enhanced</h2></div>
   <div class="ba" id="ba">
     <img src="after.png" alt="AI-enhanced iris" />
@@ -189,9 +202,9 @@
 </div></section>
 
 <section class="block cta"><div class="wrap">
-  <h2 class="h2">See the code</h2>
-  <p class="sub">Full-stack source — guided-capture front end and the AI pipeline back end.</p>
-  <a href="https://github.com/pnsw123/fixed-iris-project" target="_blank" rel="noopener">
+  <h2 class="h2">Run it yourself</h2>
+  <p class="sub">Full-stack source — guided-capture front end + the AI pipeline back end. Clone and run locally in minutes; steps in the README.</p>
+  <a href="https://github.com/pnsw123/fixed-iris-project#run-it-locally" target="_blank" rel="noopener">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
     pnsw123/fixed-iris-project
   </a>

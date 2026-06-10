@@ -1,8 +1,8 @@
-# Eyedentity — AI Iris Enhancement Platform
+# Eyedentity — AI Iris Enhancement
 
-> Capture your iris through your camera. AI segments and upscales it 4x. Download HD.
+> Capture your iris with your camera. AI segments it and upscales it 4× to reveal the detail your phone blurs away.
 
-**[View the showcase →](https://pnsw123.github.io/fixed-iris-project/)** — interactive before/after, how it works, tech.
+**[Live showcase →](https://pnsw123.github.io/fixed-iris-project/)** · interactive before/after, how it works, tech.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
@@ -11,121 +11,81 @@
 
 ---
 
-## What It Does
+## What it does
 
-Point your phone camera at your eye. A 4-stage guided system checks distance, liveness (eyebrow raise), focus, and lighting before auto-capturing. The iris crop is sent to a FastAPI backend — Iris-SAM segments it, Real-ESRGAN upscales it 4x — and both the HD enhanced and original images download for free.
+A 4-stage guided system (distance → liveness → focus → lighting) auto-captures a sharp iris on-device with MediaPipe. The crop goes to a FastAPI service where **Iris-SAM** segments the iris and **Real-ESRGAN** upscales it 4×. Both the HD result and your original download for free — no account, no watermark.
 
----
-
-## Tech Stack
-
-| Layer | Technology |
+| Layer | Stack |
 |---|---|
-| Frontend | Next.js 16, TypeScript, TailwindCSS, Framer Motion |
-| AI Backend | FastAPI 0.115, Python 3.12, Uvicorn |
-| Iris Detection | MediaPipe Face Mesh |
-| Segmentation | Iris-SAM (fine-tuned Segment Anything Model) |
-| Upscaling | Real-ESRGAN x4v3 |
-| Deployment | Vercel (frontend) · Render (backend) |
+| Front end | Next.js 16 · TypeScript · TailwindCSS · MediaPipe Face Mesh |
+| AI back end | FastAPI · Python 3.12 · Iris-SAM (Segment Anything) · Real-ESRGAN x4v3 |
 
 ---
 
-## Quick Start
+## Run it locally
 
-### 1. Clone and install frontend
+**Prereqs:** Node 18+, Python 3.12+, [`mkcert`](https://github.com/FiloSottile/mkcert) (the camera API requires HTTPS, even on localhost).
 
 ```bash
-git clone https://github.com/pnsw123/fixed-iris-project.git eyedentity
-cd eyedentity
+# 1. Clone + install front end
+git clone https://github.com/pnsw123/fixed-iris-project.git eyedentity && cd eyedentity
 npm install
-```
 
-### 2. Install backend
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate
+# 2. Back end
+cd backend && python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-```
 
-### 3. Download AI model weights
+# 3. Model weights — SAM + Real-ESRGAN download automatically
+bash ../scripts/download_models.sh          # see note on IrisSAM below
+cd ..
 
-Place these files in `backend/models/`:
-
-| File | Source |
-|---|---|
-| `IrisSAM_model.pt` | Contact maintainer — not yet public |
-| `sam_vit_b_01ec64.pth` | [Meta SAM releases](https://github.com/facebookresearch/segment-anything#model-checkpoints) |
-| `realesr-general-x4v3.pth` | [Real-ESRGAN releases](https://github.com/xinntao/Real-ESRGAN/releases) |
-
-```bash
-bash scripts/download_models.sh   # downloads sam + esrgan automatically
-```
-
-### 4. Set up local HTTPS (required for camera API)
-
-```bash
-brew install mkcert
+# 4. Local HTTPS certs (camera needs HTTPS)
 mkcert -install
-mkdir -p .cert
-mkcert -key-file .cert/localhost-key.pem -cert-file .cert/localhost.pem localhost 127.0.0.1 ::1
+mkdir -p .cert && mkcert -key-file .cert/localhost-key.pem -cert-file .cert/localhost.pem localhost 127.0.0.1 ::1
+
+# 5. Run both (two terminals)
+cd backend && source venv/bin/activate && python app.py     # API on https://localhost:8000
+npm run dev:https                                           # app on https://localhost:3005
 ```
 
-### 5. Configure environment
+Open **https://localhost:3005** → **Get Started** → guided capture → enhance → download.
 
-`.env.local` (frontend):
+Front-end env — `.env.local`:
 ```env
 NEXT_PUBLIC_BACKEND_URL=https://localhost:8000
 ```
+Back-end env — `backend/.env` (optional): `DEVICE=mps` (Apple Silicon) · `cuda` (NVIDIA) · `cpu`.
 
-`backend/.env`:
-```env
-DEVICE=mps        # mps (Apple Silicon) | cuda (NVIDIA) | cpu
-LOG_LEVEL=INFO
+> **Weights:** `sam_vit_b` and `realesr-general-x4v3` are public and auto-download. `IrisSAM_model.pt` (the fine-tuned segmenter) is **not public** — request it, or set `IRIS_SAM_MODEL_URL` to a private link before step 3. Without it the backend starts but reports unhealthy at `/health` (capture still works; the enhance step needs it).
+
+---
+
+## How it works
+
+```
+Browser (MediaPipe guided capture)
+   │  iris crop + center/radius
+   ▼
+FastAPI  ──►  Iris-SAM  ──►  Real-ESRGAN ×4  ──►  HD download (by token)
 ```
 
-### 6. Run
+Tokens hold the HD + original images server-side (1 h TTL, memory or Redis) so the large bytes stay out of the JSON response. Per-IP rate limiting; GPU work serialised by a semaphore.
+
+---
+
+## Tests
 
 ```bash
-# Backend
-cd backend && source venv/bin/activate && python app.py
-
-# Frontend (separate terminal)
-npm run dev
-```
-
-Open [https://localhost:3000](https://localhost:3000).
-
----
-
-## Project Structure
-
-```
-src/                    Next.js frontend (App Router)
-  app/                  Pages: instructions, capture, result
-  components/           React components
-  lib/                  Utilities: quality metrics, audio feedback
-backend/
-  api/                  Routes: process-iris, download
-  services/             AI services: Iris-SAM, ESRGAN
-  models/               Model weights (gitignored — download manually)
-  app.py                FastAPI entry point
-.cert/                  Local SSL certs (gitignored)
+cd backend && pytest        # 159 tests, mocked ML deps — no weights needed
+npm test                    # front-end unit tests (Vitest)
 ```
 
 ---
 
-## Troubleshooting
+## Deploy
 
-| Symptom | Fix |
-|---|---|
-| Camera permission denied | Must run on HTTPS — never `http://localhost` |
-| Backend crashes on startup | Model weights missing or named incorrectly in `backend/models/` |
-| CORS error in browser | Add your frontend port to `CORS_ORIGINS` in `backend/.env` |
-| SSL certificate not trusted | Run `mkcert -install`, regenerate certs, restart browser |
-
----
+- **Front end** → Vercel (`next.config` already sets the COEP/COOP headers MediaPipe needs).
+- **Back end** → Render via `backend/render.yaml` (set `IRIS_SAM_MODEL_URL` + `CORS_ORIGINS`; needs ≥2 GB RAM for the models).
 
 ## License
 

@@ -103,3 +103,9 @@ coverage.xml
 
 # SSL certificates (security risk)
 .cert/
+
+# AI session plan artifacts (Claude Code orchestrator)
+.claude/fix-*-plan.md
+
+# Runtime logs in subdirectories
+backend/*.log

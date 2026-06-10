@@ -2,11 +2,15 @@
 Download Routes - Serves HD images after payment verification.
 
 Endpoints:
-1. POST /api/download-hd - In-browser download (with polling for webhook race)
-2. GET /d/{token} - Email link download (JWT-verified)
+1. POST /api/download-hd  - In-browser download; returns 202 + Retry-After if
+                            payment not yet confirmed.  Callers should poll
+                            GET /api/download-status/{token} (preferred) and
+                            retry once ready == true.
+2. GET  /api/download-status/{token} - Non-blocking status check (preferred
+                                        polling mechanism).
+3. GET  /d/{token} - Email link download (JWT-verified)
 """
 
-import asyncio
 import logging
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -38,13 +42,20 @@ class DownloadRequest(BaseModel):
 async def download_hd(request: Request, body: DownloadRequest):
     """
     Download HD image after payment.
-    
-    This endpoint handles the webhook race condition by polling
-    for up to 30 seconds waiting for payment confirmation.
-    
+
+    Returns 200 + PNG immediately if payment is already confirmed.
+    Returns 202 Accepted with a ``Retry-After`` hint if the webhook has not
+    arrived yet — the caller should poll ``GET /api/download-status/{token}``
+    (the preferred mechanism) and retry this endpoint once ``ready`` is true.
+
+    Preferred polling flow (non-blocking):
+        1. POST /api/download-hd  → 202 if pending
+        2. GET  /api/download-status/{token}  → poll until {"ready": true}
+        3. POST /api/download-hd  → 200 + image
+
     Returns:
         - 200 + PNG image if payment confirmed
-        - 202 if still waiting for payment (check email)
+        - 202 Accepted + Retry-After header if payment not yet confirmed
         - 404 if token not found
     """
     token = body.token
@@ -57,48 +68,37 @@ async def download_hd(request: Request, body: DownloadRequest):
             {"error": "Invalid or expired token"},
             status_code=404
         )
-    
-    # Poll for payment confirmation (handles webhook race condition)
-    MAX_WAIT_SECONDS = 30
-    POLL_INTERVAL = 0.5
-    elapsed = 0.0
-    
-    while elapsed < MAX_WAIT_SECONDS:
-        # Refresh purchase data
-        purchase = purchase_service.get_purchase(token)
-        
-        if not purchase:
-            # Token was cleaned up while waiting
-            return JSONResponse(
-                {"error": "Purchase expired"},
-                status_code=410
-            )
-        
-        if purchase.status == PurchaseStatus.PAID:
-            # Success! Serve the HD image
-            logger.info(f"✅ Serving HD download: {token[:8]}...")
-            
-            return Response(
-                content=purchase.image_data,
-                media_type="image/png",
-                headers={
-                    "Content-Disposition": "attachment; filename=eyedentity-hd.png",
-                    "Cache-Control": "no-store"
-                }
-            )
-        
-        # Wait and retry
-        await asyncio.sleep(POLL_INTERVAL)
-        elapsed += POLL_INTERVAL
-    
-    # Timeout - webhook hasn't arrived yet
-    logger.warning(f"Download timeout for {token[:8]}... (payment not confirmed in {MAX_WAIT_SECONDS}s)")
-    
-    return JSONResponse({
-        "error": "Payment verification pending",
-        "message": "Your download link has been sent to your email. Please check your inbox (and spam folder).",
-        "retry": True
-    }, status_code=202)
+
+    # Fast path: payment already confirmed — serve image immediately.
+    if purchase.status == PurchaseStatus.PAID:
+        logger.info(f"✅ Serving HD download: {token[:8]}...")
+        return Response(
+            content=purchase.image_data,
+            media_type="image/png",
+            headers={
+                "Content-Disposition": "attachment; filename=eyedentity-hd.png",
+                "Cache-Control": "no-store",
+            }
+        )
+
+    # Payment not yet confirmed — return immediately so the HTTP connection
+    # is not held open.  The frontend should poll GET /api/download-status/{token}
+    # and retry this endpoint once ready == true.
+    logger.info(f"⏳ Payment pending for {token[:8]}..., returning 202")
+    return JSONResponse(
+        {
+            "error": "Payment verification pending",
+            "message": (
+                "Your payment is being confirmed. Poll GET /api/download-status/{token} "
+                "until ready is true, then retry this endpoint. "
+                "A download link has also been sent to your email."
+            ),
+            "poll_url": f"/api/download-status/{token}",
+            "retry": True,
+        },
+        status_code=202,
+        headers={"Retry-After": "2"},
+    )
 
 
 @router.get("/api/download-status/{token}")

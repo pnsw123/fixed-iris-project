@@ -11,15 +11,15 @@ export default function StatusIndicator({ type, status }: StatusIndicatorProps) 
     const getIcon = () => {
         switch (type) {
             case 'distance':
-                return <Eye className="w-3.5 h-3.5" />;
+                return <Eye className="w-4 h-4 shrink-0" />;
             case 'centering':
-                return <Target className="w-3.5 h-3.5" />;
+                return <Target className="w-4 h-4 shrink-0" />;
             case 'lighting':
-                return <Lightbulb className="w-3.5 h-3.5" />;
+                return <Lightbulb className="w-4 h-4 shrink-0" />;
             case 'focus':
-                return <Focus className="w-3.5 h-3.5" />;
+                return <Focus className="w-4 h-4 shrink-0" />;
             case 'angle':
-                return <Smartphone className="w-3.5 h-3.5" />;
+                return <Smartphone className="w-4 h-4 shrink-0" />;
         }
     };
 
@@ -65,10 +65,10 @@ export default function StatusIndicator({ type, status }: StatusIndicatorProps) 
             role="status"
             aria-live="polite"
             aria-label={`${getLabel()}: ${getStatusLabel()}`}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-full backdrop-blur-sm transition-all duration-300 ${getColor()}`}
+            className={`flex items-center gap-2 px-3 py-2 min-h-[36px] border rounded-full backdrop-blur-sm transition-all duration-300 ${getColor()}`}
         >
             {getIcon()}
-            <span className="text-[10px] font-medium uppercase tracking-wide">{getLabel()}</span>
+            <span className="text-xs font-medium uppercase tracking-wide leading-none">{getLabel()}</span>
         </div>
     );
 }

@@ -2,7 +2,7 @@
 
 > Transform your iris into stunning, high-resolution art using AI-powered segmentation and upscaling.
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-16.0.4--canary-black?logo=next.js)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)
 ![License](https://img.shields.io/badge/License-Private-red)
@@ -26,7 +26,7 @@
 
 | Component | Technology |
 |-----------|------------|
-| Frontend | Next.js 16, TypeScript, TailwindCSS |
+| Frontend | Next.js 16.0.4 (canary), TypeScript, TailwindCSS |
 | Backend | FastAPI 0.115, Python 3.12, Uvicorn |
 | AI Models | Iris-SAM (SAM fine-tuned), Real-ESRGAN x4v3 |
 | Detection | MediaPipe Face Mesh |

@@ -146,8 +146,10 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
 
         // Update backend with email
         try {
-            await fetch(`${BACKEND_URL}/api/update-purchase-email?token=${purchaseToken}&email=${encodeURIComponent(userEmail)}`, {
-                method: 'POST'
+            await fetch(`${BACKEND_URL}/api/update-purchase-email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: purchaseToken, email: userEmail }),
             });
         } catch {
             // Non-critical - continue anyway

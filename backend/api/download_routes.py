@@ -10,7 +10,7 @@ import asyncio
 import logging
 from fastapi import APIRouter, Response
 from fastapi.responses import JSONResponse, HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from services.purchase_service import purchase_service, PurchaseStatus
 from services.email_service import decode_download_token
@@ -289,20 +289,29 @@ async def download_from_email_link(download_token: str):
     )
 
 
+class UpdatePurchaseEmailRequest(BaseModel):
+    """Request body for update-purchase-email endpoint."""
+    token: str
+    email: EmailStr
+
+
 @router.post("/api/update-purchase-email")
-async def update_purchase_email(token: str, email: str):
+async def update_purchase_email(request: UpdatePurchaseEmailRequest):
     """
     Update the email for a pending purchase.
     Called when user enters email before checkout.
+
+    Accepts JSON body (token + email) — never query params, to prevent
+    sensitive data appearing in server logs, browser history, and CDN/proxy logs.
     """
-    success = purchase_service.update_email(token, email)
+    success = purchase_service.update_email(request.token, request.email)
     
     if not success:
         return JSONResponse(
             {"error": "Purchase not found"},
             status_code=404
         )
-    
+
     return {"status": "updated"}
 
 

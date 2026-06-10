@@ -751,7 +751,7 @@ export default function MobileCaptureScreen({
 
                 {/* Guidance Message Bar */}
                 {!isInitializing && (
-                    <div className="pointer-events-none pb-28 px-6">
+                    <div className="pointer-events-none pb-[calc(7rem+env(safe-area-inset-bottom))] px-6">
                         <div className="text-center">
                             <AnimatePresence mode="wait">
                                 <motion.p
@@ -774,7 +774,7 @@ export default function MobileCaptureScreen({
 
                 {/* Status Indicators at Bottom */}
                 {!isInitializing && currentReport && (
-                    <div className="pointer-events-none pb-8 px-6">
+                    <div className="pointer-events-none pb-[calc(2rem+env(safe-area-inset-bottom))] px-6">
                         <div
                             className="flex gap-2 justify-center"
                             role="region"

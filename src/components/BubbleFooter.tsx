@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 const CHIPS = [
     { label: 'On-device only', icon: true },
     { label: 'Zero cloud', icon: true },
-    { label: '© 2025', icon: false },
+    { label: `© ${new Date().getFullYear()}`, icon: false },
 ] as const;
 
 /** Tiny iris-ring SVG icon used as chip leading decoration */

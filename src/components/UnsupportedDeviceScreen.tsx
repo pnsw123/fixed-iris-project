@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { CameraCapabilities, MIN_MEGAPIXELS } from '@/lib/cameraCheck';
 import BubbleFooter from './BubbleFooter';
+import SpotlightBackground from './SpotlightBackground';
 
 interface UnsupportedDeviceScreenProps {
     cameraInfo?: CameraCapabilities;
@@ -16,12 +17,7 @@ export default function UnsupportedDeviceScreen({ cameraInfo }: UnsupportedDevic
     return (
         <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-white">
             {/* Full-page Spotlight matching Home screen */}
-            <div
-                className="pointer-events-none absolute inset-0"
-                style={{
-                    background: 'radial-gradient(ellipse 80% 50% at 50% 50%, rgba(120, 119, 198, 0.25), transparent 80%)',
-                }}
-            />
+            <SpotlightBackground />
 
             {/* Header - Aligned with Home screen */}
             <div className="px-6 py-6 relative z-10">

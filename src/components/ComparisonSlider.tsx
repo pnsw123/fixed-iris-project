@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import Image from 'next/image';
 import { useDebugMode } from '@/hooks/useDebugMode';
 
 interface ComparisonSliderProps {
@@ -164,12 +165,14 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
                     onClick={handleClick}
                     aria-label="Comparison slider"
                 >
-                    {/* Before image (base layer) — dynamic base64/static, Next Image incompatible here */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                        src="/before.png"
+                    {/* Before image (base layer) */}
+                    <Image
+                        src="/before.webp"
                         alt="Before"
-                        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
+                        fill
+                        priority
+                        sizes="(max-width: 768px) 100vw, 800px"
+                        className="object-cover object-center pointer-events-none"
                         draggable={false}
                     />
 
@@ -178,11 +181,13 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
                         className="absolute inset-0 overflow-hidden"
                         style={{ width: overlayWidth }}
                     >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                            src={isDebug ? "/before.png" : "/after.png"}
+                        <Image
+                            src={isDebug ? "/before.webp" : "/after.webp"}
                             alt="After"
-                            className="absolute left-0 top-0 h-full object-cover object-center pointer-events-none"
+                            fill
+                            priority
+                            sizes="(max-width: 768px) 100vw, 800px"
+                            className="object-cover object-center pointer-events-none"
                             style={{
                                 width: containerWidth ? `${containerWidth}px` : '100%',
                                 maxWidth: 'none'

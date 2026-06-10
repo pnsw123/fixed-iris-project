@@ -697,10 +697,15 @@ export default function MobileCaptureScreen({
     if (cameraError) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center">
-                <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+                <AlertCircle className="w-16 h-16 text-red-500 mb-4" aria-hidden="true" />
                 <h2 className="text-xl font-bold text-white mb-2">Camera Error</h2>
-                <p className="text-neutral-400 mb-6">{errorMessage}</p>
-                <button onClick={onBack} className="px-6 py-3 bg-neutral-800 text-white rounded-full">
+                <p id="camera-error-description" className="text-neutral-400 mb-6">{errorMessage}</p>
+                <button
+                    onClick={onBack}
+                    aria-label="Go back to home"
+                    aria-describedby="camera-error-description"
+                    className="px-6 py-3 bg-neutral-800 text-white rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                >
                     Go Back
                 </button>
             </div>
@@ -716,6 +721,8 @@ export default function MobileCaptureScreen({
                 playsInline
                 muted
                 autoPlay
+                aria-hidden="true"
+                aria-label="Live camera preview for iris capture"
             />
 
             {/* Iris Target Overlay - Only show when iris is detected */}
@@ -755,8 +762,12 @@ export default function MobileCaptureScreen({
                 {/* Header with Back Button */}
                 <div className="bg-gradient-to-b from-black/60 to-transparent backdrop-blur-sm pointer-events-auto">
                     <div className="px-6 py-4 flex items-center justify-between">
-                        <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                            <ArrowLeft className="w-5 h-5 text-white" />
+                        <button
+                            onClick={onBack}
+                            aria-label="Go back"
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 focus-visible:ring-offset-black/60"
+                        >
+                            <ArrowLeft className="w-5 h-5 text-white" aria-hidden="true" />
                         </button>
 
                         {isInitializing && (
@@ -775,7 +786,12 @@ export default function MobileCaptureScreen({
                 {!isInitializing && (
                     <div className="pointer-events-none pb-28 px-6">
                         <div className="text-center">
-                            <p className="text-base font-light text-white drop-shadow-lg">
+                            <p
+                                role="status"
+                                aria-live="polite"
+                                aria-atomic="true"
+                                className="text-base font-light text-white drop-shadow-lg"
+                            >
                                 {guidanceMessage}
                             </p>
                         </div>
@@ -785,7 +801,11 @@ export default function MobileCaptureScreen({
                 {/* Status Indicators at Bottom */}
                 {!isInitializing && currentReport && (
                     <div className="pointer-events-none pb-8 px-6">
-                        <div className="flex gap-2 justify-center">
+                        <div
+                            className="flex gap-2 justify-center"
+                            role="region"
+                            aria-label="Capture quality indicators"
+                        >
                             <StatusIndicator
                                 type="focus"
                                 status={

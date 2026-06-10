@@ -2,8 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import rough from 'roughjs';
+import AppHeader from './AppHeader';
 import BubbleFooter from './BubbleFooter';
 import WordListSwap from './WordListSwap';
 import SpotlightBackground from './SpotlightBackground';
@@ -156,17 +156,7 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
             <SpotlightBackground />
 
             {/* Header */}
-            <div className="px-6 py-6 relative z-10">
-                <div className="flex items-center gap-2">
-                    <DotLottieReact
-                        src="https://lottie.host/265c2c96-b73d-48dd-a60d-d5f8fb10f7d8/7yPHcgKqNe.lottie"
-                        loop
-                        autoplay
-                        style={{ width: 32, height: 32 }}
-                    />
-                    <span className="text-sm font-mono text-gray-400 tracking-wider">IRIS CAPTURE</span>
-                </div>
-            </div>
+            <AppHeader title="IRIS CAPTURE" />
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col items-center justify-center px-8 py-16 sm:px-16 relative z-10">
@@ -191,7 +181,7 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
                     </h1>
 
                     {/* Tagline */}
-                    <p className="text-gray-400 text-lg font-light flex items-center justify-center gap-2 mb-10">
+                    <p id="intro-tagline" className="text-gray-400 text-lg font-light flex items-center justify-center gap-2 mb-10">
                         <span>See yourself</span>
                         <WordListSwap
                             texts={[
@@ -241,7 +231,8 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
                     {/* CTA */}
                     <button
                         onClick={() => router.push('/instructions')}
-                        className="bg-white text-black font-medium text-base py-4 px-12 hover:bg-gray-100 transition-colors"
+                        aria-describedby="intro-tagline"
+                        className="bg-white text-black font-medium text-base py-4 px-12 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                     >
                         Get Started
                     </button>

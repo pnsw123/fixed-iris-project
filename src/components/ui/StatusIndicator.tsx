@@ -45,8 +45,24 @@ export default function StatusIndicator({ type, status }: StatusIndicatorProps) 
         }
     };
 
+    const getStatusLabel = () => {
+        switch (status) {
+            case 'ok':
+                return 'good';
+            case 'warn':
+                return 'warning';
+            case 'fail':
+                return 'poor';
+        }
+    };
+
     return (
-        <div className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-full backdrop-blur-sm transition-all duration-300 ${getColor()}`}>
+        <div
+            role="status"
+            aria-live="polite"
+            aria-label={`${getLabel()}: ${getStatusLabel()}`}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-full backdrop-blur-sm transition-all duration-300 ${getColor()}`}
+        >
             {getIcon()}
             <span className="text-[10px] font-medium uppercase tracking-wide">{getLabel()}</span>
         </div>

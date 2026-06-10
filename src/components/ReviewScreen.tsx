@@ -65,7 +65,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Download, RotateCcw, Sparkles, Wifi, WifiOff, Mail, X, Loader2 } from 'lucide-react';
 import { backendClient } from '@/lib/backendClient';
 import { CaptureData } from './MobileCaptureScreen';
+import AppHeader from './AppHeader';
 import SpotlightBackground from './SpotlightBackground';
+import { useToast } from '@/lib/toast';
 
 interface ReviewScreenProps {
     captureData: CaptureData;
@@ -82,6 +84,7 @@ const BACKEND_URL = typeof window !== 'undefined'
 
 export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProps) {
     const { imageData: irisCrop, irisCoordinates, cropSize, irisRadius } = captureData;
+    const { toast } = useToast();
 
     // Image states
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -89,7 +92,6 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
 
     // UI states
     const [isEnhancing, setIsEnhancing] = useState(false);
-    const [enhancementError, setEnhancementError] = useState<string | null>(null);
     const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
     const [processingMetadata, setProcessingMetadata] = useState<any>(null);
 
@@ -98,8 +100,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
     const [userEmail, setUserEmail] = useState('');
     const [emailError, setEmailError] = useState<string | null>(null);
     const [isDownloading, setIsDownloading] = useState(false);
-    const [downloadStatus, setDownloadStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
-    const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+    const [downloadPending, setDownloadPending] = useState(false);
     const [emailVerified, setEmailVerified] = useState(false);  // Unlocks download buttons
 
     // Check backend availability on mount
@@ -137,8 +138,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                 const blob = await response.blob();
                 downloadBlobReliable(blob, 'eyedentity-hd.png');
                 localStorage.removeItem('eyedentity_purchase');
-                setDownloadStatus('success');
-                setDownloadMessage('Download recovered! Check your downloads folder.');
+                toast.success('Download recovered! Check your downloads folder.');
             }
         } catch {
             // Silent fail - user can try again
@@ -147,7 +147,6 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
 
     const handleEnhance = async () => {
         setIsEnhancing(true);
-        setEnhancementError(null);
 
         try {
             console.log('[ReviewScreen] Sending to backend for Iris-SAM + ESRGAN processing...');
@@ -166,13 +165,13 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                 setPurchaseToken(result.purchase_token);
                 setProcessingMetadata(result.metadata);
                 console.log('[ReviewScreen] ✅ Backend processing complete!');
-                console.log('Purchase token:', result.purchase_token);
+                toast.success('Enhancement complete — HD preview ready!');
             } else {
                 throw new Error(result.error || 'Enhancement failed');
             }
         } catch (err) {
             console.error('[ReviewScreen] Backend processing failed:', err);
-            setEnhancementError(
+            toast.error(
                 err instanceof Error
                     ? err.message
                     : 'AI enhancement failed. Check backend connection.'
@@ -229,12 +228,12 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
 
             window.open(checkoutUrl.toString(), '_blank');
 
-            setDownloadStatus('pending');
-            setDownloadMessage('Complete payment in the new tab. Then tap the download buttons below.');
+            setDownloadPending(true);
+            toast.info('Complete payment in the new tab, then tap the download buttons below.', 8000);
         } else {
             // Demo mode - downloads are ready, no auto-download
-            setDownloadStatus('success');
-            setDownloadMessage('✓ Your images are ready! Tap each button below to download.');
+            setDownloadPending(false);
+            toast.success('Your images are ready! Tap each button below to download.');
         }
 
         // Scroll to download buttons after a brief delay
@@ -250,7 +249,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
         if (!purchaseToken) return;
 
         setIsDownloading(true);
-        setDownloadMessage('Fetching your images...');
+        toast.info('Fetching your images...');
 
         try {
             // STEP 1: Fetch BOTH images first (before triggering any downloads)
@@ -278,15 +277,12 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
             }
 
             // STEP 2: Convert both to blobs
-            setDownloadMessage('Preparing downloads...');
             const [hdBlob, originalBlob] = await Promise.all([
                 hdResponse.blob(),
                 originalResponse.blob()
             ]);
 
             // STEP 3: Trigger both downloads (nearly simultaneously)
-            setDownloadMessage('Downloading 2 images...');
-
             // Download HD first
             downloadBlobReliable(hdBlob, 'eyedentity-hd.png');
 
@@ -295,13 +291,12 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
             downloadBlobReliable(originalBlob, 'eyedentity-original.png');
 
             localStorage.removeItem('eyedentity_purchase');
-            setDownloadStatus('success');
-            setDownloadMessage('✓ Both images downloaded! Check your downloads folder.');
+            setDownloadPending(false);
+            toast.success('Both images downloaded! Check your downloads folder.');
 
         } catch (error) {
             console.error('[Download] Error:', error);
-            setDownloadStatus('error');
-            setDownloadMessage(error instanceof Error ? error.message : 'Download failed. Please try again.');
+            toast.error(error instanceof Error ? error.message : 'Download failed. Please try again.');
         } finally {
             setIsDownloading(false);
         }
@@ -312,7 +307,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
         if (!purchaseToken) return;
 
         setIsDownloading(true);
-        setDownloadMessage(`Downloading ${type === 'hd' ? 'HD Enhanced' : 'Original'}...`);
+        toast.info(`Downloading ${type === 'hd' ? 'HD Enhanced' : 'Original'}...`);
 
         try {
             const endpoint = type === 'hd'
@@ -337,13 +332,11 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
             const blob = await response.blob();
             downloadBlobReliable(blob, filename);
 
-            setDownloadStatus('success');
-            setDownloadMessage(`✓ ${type === 'hd' ? 'HD Enhanced' : 'Original'} downloaded!`);
+            toast.success(`${type === 'hd' ? 'HD Enhanced' : 'Original'} downloaded!`);
 
         } catch (error) {
             console.error(`[Download ${type}] Error:`, error);
-            setDownloadStatus('error');
-            setDownloadMessage(error instanceof Error ? error.message : 'Download failed.');
+            toast.error(error instanceof Error ? error.message : 'Download failed.');
         } finally {
             setIsDownloading(false);
         }
@@ -376,23 +369,26 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
         <div className="min-h-screen bg-black flex flex-col relative overflow-hidden">
             <SpotlightBackground />
             {/* Header with Backend Status */}
-            <div className="px-6 py-6 flex items-center justify-between relative z-10">
-                <h1 className="text-sm font-mono text-gray-400 tracking-wider">IRIS CAPTURE REVIEW</h1>
-                <div className="flex items-center gap-2">
-                    {backendAvailable === true && (
-                        <>
-                            <Wifi className="w-4 h-4 text-emerald-500" />
-                            <span className="text-xs font-mono text-emerald-500">Backend Ready</span>
-                        </>
-                    )}
-                    {backendAvailable === false && (
-                        <>
-                            <WifiOff className="w-4 h-4 text-red-500" />
-                            <span className="text-xs font-mono text-red-500">Backend Offline</span>
-                        </>
-                    )}
-                </div>
-            </div>
+            <AppHeader
+                title="IRIS CAPTURE REVIEW"
+                showBack
+                rightSlot={
+                    <>
+                        {backendAvailable === true && (
+                            <>
+                                <Wifi className="w-4 h-4 text-emerald-500" />
+                                <span className="text-xs font-mono text-emerald-500">Backend Ready</span>
+                            </>
+                        )}
+                        {backendAvailable === false && (
+                            <>
+                                <WifiOff className="w-4 h-4 text-red-500" />
+                                <span className="text-xs font-mono text-red-500">Backend Offline</span>
+                            </>
+                        )}
+                    </>
+                }
+            />
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col items-center justify-center px-8 py-16 sm:px-16 relative z-10">
@@ -504,42 +500,20 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                         </button>
                     )}
 
-                    {/* Error Message */}
-                    {enhancementError && (
-                        <div className="bg-red-900/20 border border-red-900/50 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                                <p className="text-red-400 text-sm">{enhancementError}</p>
-                                <button
-                                    onClick={handleEnhance}
-                                    className="text-red-400 underline hover:text-red-300 text-sm"
-                                >
-                                    Retry
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Download Status Message */}
-                    {downloadMessage && (
-                        <div className={`rounded-lg p-4 ${downloadStatus === 'success' ? 'bg-emerald-900/20 border border-emerald-900/50' :
-                            downloadStatus === 'error' ? 'bg-red-900/20 border border-red-900/50' :
-                                'bg-blue-900/20 border border-blue-900/50'
-                            }`}>
-                            <p className={`text-sm ${downloadStatus === 'success' ? 'text-emerald-400' :
-                                downloadStatus === 'error' ? 'text-red-400' :
-                                    'text-blue-400'
-                                }`}>
-                                {downloadMessage}
-                            </p>
-                            {downloadStatus === 'pending' && (
+                    {/* Pending payment indicator */}
+                    {downloadPending && (
+                        <div className="bg-blue-950/40 border border-blue-800/40 rounded-lg p-3 flex items-center gap-3">
+                            <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />
+                            <div className="flex-1 min-w-0">
+                                <p className="text-blue-300 text-sm">Waiting for payment confirmation</p>
                                 <button
                                     onClick={attemptDownload}
                                     disabled={isDownloading}
-                                    className="mt-2 text-sm text-blue-400 underline hover:text-blue-300"
+                                    className="text-xs text-blue-400 underline hover:text-blue-300 mt-0.5"
                                 >
-                                    {isDownloading ? 'Checking...' : 'Check download status'}
+                                    {isDownloading ? 'Checking...' : 'Already paid? Check now'}
                                 </button>
-                            )}
+                            </div>
                         </div>
                     )}
 

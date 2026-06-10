@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import AppHeader from '@/components/AppHeader';
 import ComparisonSlider from '@/components/ComparisonSlider';
 import UnsupportedDeviceScreen from '@/components/UnsupportedDeviceScreen';
 import { checkCameraResolution, CameraCapabilities } from '@/lib/cameraCheck';
@@ -104,17 +105,7 @@ export default function InstructionsPage() {
         <div className="min-h-screen bg-black flex flex-col text-white relative overflow-hidden">
             <SpotlightBackground />
             {/* Header */}
-            <div className="px-6 py-6">
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => router.back()}
-                        className="p-2 -ml-2 hover:bg-gray-900 rounded-full transition-colors"
-                    >
-                        <ArrowLeft className="w-5 h-5 text-gray-400" />
-                    </button>
-                    <span className="text-sm font-mono text-gray-400 tracking-wider">INSTRUCTIONS</span>
-                </div>
-            </div>
+            <AppHeader title="INSTRUCTIONS" showBack />
 
             {/* Main Content */}
             <div className="flex-1 px-8 py-16 sm:px-16 max-w-xl mx-auto w-full relative z-10">

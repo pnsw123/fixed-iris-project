@@ -556,30 +556,64 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                         </div>
                     </motion.div>
 
-                    {/* Enhance Button — staggered entrance, springs in with scale */}
+                    {/* Enhance Button — premium brand CTA with shimmer + glow pulse */}
                     <AnimatePresence>
                     {!previewImage && !isEnhancing && (
                         <motion.button
                             onClick={() => { void handleEnhance(); }}
                             disabled={!backendAvailable}
-                            className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500
-                             text-white font-medium py-4 px-6
-                             hover:from-emerald-500 hover:to-emerald-400
-                             disabled:from-gray-700 disabled:to-gray-600
-                             disabled:cursor-not-allowed
-                             transition-colors flex items-center justify-center gap-3
-                             shadow-lg shadow-emerald-900/50"
+                            className={[
+                                'relative w-full overflow-hidden',
+                                'bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600',
+                                'text-white font-semibold py-4 px-6',
+                                'disabled:from-gray-700 disabled:via-gray-700 disabled:to-gray-600',
+                                'disabled:cursor-not-allowed',
+                                'flex items-center justify-center gap-3',
+                                'rounded-lg',
+                                'ring-1 ring-violet-400/25',
+                                'shadow-lg shadow-violet-900/50',
+                            ].join(' ')}
                             initial={{ opacity: 0, scale: 0.9, y: 18 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            animate={{
+                                opacity: 1,
+                                scale: 1,
+                                y: 0,
+                                boxShadow: backendAvailable
+                                    ? [
+                                        '0 8px 32px -4px rgba(139,92,246,0.35)',
+                                        '0 8px 40px -4px rgba(139,92,246,0.65)',
+                                        '0 8px 32px -4px rgba(139,92,246,0.35)',
+                                      ]
+                                    : '0 4px 16px -4px rgba(0,0,0,0.3)',
+                            }}
                             exit={{ opacity: 0, scale: 0.9, y: 12 }}
-                            transition={{ delay: 0.35, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                            whileHover={{ scale: backendAvailable ? 1.02 : 1 }}
+                            transition={{
+                                opacity: { delay: 0.35, duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+                                scale:   { delay: 0.35, duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+                                y:       { delay: 0.35, duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+                                boxShadow: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' },
+                            }}
+                            whileHover={{
+                                scale: backendAvailable ? 1.02 : 1,
+                                boxShadow: '0 12px 48px -4px rgba(139,92,246,0.75)',
+                            }}
                             whileTap={{ scale: backendAvailable ? 0.97 : 1 }}
                         >
-                            <Sparkles className="w-5 h-5" />
-                            {backendAvailable
-                                ? 'Enhance with Iris-SAM + Real-ESRGAN'
-                                : 'Backend Server Required'}
+                            {/* Shimmer sweep — animates on loop when enabled */}
+                            {backendAvailable && (
+                                <motion.span
+                                    aria-hidden
+                                    className="pointer-events-none absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg]"
+                                    animate={{ x: ['-120%', '320%'] }}
+                                    transition={{ duration: 2.8, repeat: Infinity, repeatDelay: 1.6, ease: 'easeInOut' }}
+                                />
+                            )}
+                            <Sparkles className="w-5 h-5 relative z-10" />
+                            <span className="relative z-10">
+                                {backendAvailable
+                                    ? 'Enhance My Iris'
+                                    : 'Backend Server Required'}
+                            </span>
                         </motion.button>
                     )}
                     </AnimatePresence>

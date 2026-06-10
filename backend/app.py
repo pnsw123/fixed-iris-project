@@ -99,8 +99,14 @@ pipeline_service: Optional[IrisPipelineService] = None
 # report unhealthy rather than crash-loop when model weights are missing.
 models_loaded: bool = False
 
-# GPU access semaphore - only 1 request processes at a time
-# Prevents OOM when multiple users submit simultaneously
+# GPU access semaphore — serialises AI pipeline (SAM + ESRGAN) per worker process.
+#
+# Scope: this semaphore is process-local. Each Uvicorn worker process has its own
+# semaphore, so N workers allow N concurrent GPU operations. On a 4 GB VRAM GPU
+# with SAM+ESRGAN requiring ~4 GB combined, WORKERS must stay at 1 to avoid OOM.
+#
+# For multi-worker deployments: replace with a Redis-backed distributed lock
+# (e.g. redis-py Lock with blocking=True) to get true global serialisation.
 GPU_SEMAPHORE = asyncio.Semaphore(1)
 
 

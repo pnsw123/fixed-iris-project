@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eyedentity — AI Iris Enhancement</title>
+<meta name="description" content="Capture your iris through your camera. AI segments and upscales it 4× to reveal the detail your phone can't. On-device guided capture, free." />
+<meta property="og:title" content="Eyedentity — AI Iris Enhancement" />
+<meta property="og:description" content="Capture your iris. AI segments + upscales it 4× to reveal hidden detail." />
+<meta property="og:image" content="after.png" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230a0a0f'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%237c83ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%237c83ff'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#08080c; --bg2:#0d0d14; --panel:#12121b; --line:rgba(255,255,255,.08);
+    --ink:#f4f4f8; --muted:#9a9ab0; --accent:#7c83ff; --accent2:#a78bfa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  .accent{color:var(--accent)}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
+    background:rgba(8,8,12,.7);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.02em}
+  .brand .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--accent);
+    display:grid;place-items:center}
+  .brand .dot::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .ghbtn{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);
+    border:1px solid var(--line);padding:7px 14px;border-radius:8px;transition:.2s}
+  .ghbtn:hover{color:var(--ink);border-color:var(--accent)}
+
+  /* hero */
+  header{position:relative;padding:96px 0 56px;text-align:center;overflow:hidden}
+  header::before{content:"";position:absolute;top:-30%;left:50%;transform:translateX(-50%);
+    width:760px;height:760px;border-radius:50%;
+    background:radial-gradient(closest-side,rgba(124,131,255,.18),transparent 70%);filter:blur(10px);z-index:0}
+  header .wrap{position:relative;z-index:1}
+  .eyebrow{font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--muted)}
+  h1{font-size:clamp(44px,8vw,86px);line-height:1.02;letter-spacing:-.03em;margin:18px 0 14px;font-weight:700}
+  .tag{font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:600px;margin:0 auto}
+  .tag b{color:var(--ink);font-weight:600}
+  .pills{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:30px 0 8px}
+  .pill{font-size:12.5px;color:var(--muted);border:1px solid var(--line);
+    padding:6px 13px;border-radius:999px;background:var(--bg2)}
+  .pill b{color:var(--accent);font-weight:600}
+
+  /* before/after slider */
+  .ba-section{padding:36px 0 80px}
+  .ba-head{text-align:center;margin-bottom:22px}
+  .ba-head h2{font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .ba{position:relative;max-width:560px;margin:0 auto;aspect-ratio:1/1;border-radius:20px;
+    overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.6);
+    --pos:50%;user-select:none;touch-action:none}
+  .ba img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;display:block}
+  .ba .top{position:absolute;inset:0;clip-path:inset(0 calc(100% - var(--pos)) 0 0)}
+  .ba .lbl{position:absolute;top:14px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    padding:5px 11px;border-radius:7px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:3}
+  .ba .lbl.l{left:14px;color:var(--muted)}
+  .ba .lbl.r{right:14px;color:var(--accent);border:1px solid rgba(124,131,255,.4)}
+  .ba .divider{position:absolute;top:0;bottom:0;left:var(--pos);width:2px;background:rgba(255,255,255,.7);
+    transform:translateX(-1px);z-index:3;pointer-events:none}
+  .ba .handle{position:absolute;top:50%;left:var(--pos);width:42px;height:42px;border-radius:50%;
+    background:#fff;color:#000;transform:translate(-50%,-50%);z-index:4;display:grid;place-items:center;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);cursor:ew-resize;font-size:15px;font-weight:700}
+  .ba input[type=range]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;z-index:5;margin:0}
+  .ba-caption{text-align:center;color:var(--muted);font-size:13px;margin-top:16px}
+
+  /* sections */
+  section.block{padding:72px 0;border-top:1px solid var(--line)}
+  .h2{font-size:clamp(26px,4vw,38px);letter-spacing:-.02em;font-weight:700;margin-bottom:10px;text-align:center}
+  .sub{text-align:center;color:var(--muted);max-width:560px;margin:0 auto 44px}
+
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px 20px}
+  .step .n{font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.1em}
+  .step h3{font-size:16px;margin:10px 0 6px;font-weight:600}
+  .step p{font-size:13.5px;color:var(--muted)}
+
+  .split{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:center}
+  .split img{width:100%;border-radius:16px;border:1px solid var(--line);box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .feat{list-style:none;display:flex;flex-direction:column;gap:18px}
+  .feat li{display:flex;gap:14px}
+  .feat .ic{flex:0 0 34px;height:34px;border-radius:9px;background:rgba(124,131,255,.12);
+    border:1px solid rgba(124,131,255,.3);color:var(--accent);display:grid;place-items:center;font-size:15px}
+  .feat b{display:block;font-size:15px}
+  .feat span{color:var(--muted);font-size:13.5px}
+
+  .stack{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .chip{font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);
+    padding:8px 15px;border-radius:9px}
+  .chip i{color:var(--muted);font-style:normal}
+
+  .cta{text-align:center}
+  .cta a{display:inline-flex;align-items:center;gap:9px;background:var(--ink);color:#000;
+    font-weight:600;padding:14px 26px;border-radius:11px;transition:.2s;font-size:15px}
+  .cta a:hover{background:var(--accent);color:#fff}
+
+  footer{border-top:1px solid var(--line);padding:38px 0;text-align:center;color:var(--muted);font-size:13px}
+  footer a{color:var(--accent)}
+
+  @media(max-width:820px){
+    .steps{grid-template-columns:repeat(2,1fr)}
+    .split{grid-template-columns:1fr;gap:28px}
+  }
+  @media(max-width:480px){.steps{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <div class="brand"><span class="dot"></span> Eyedentity</div>
+  <a class="ghbtn" href="https://github.com/pnsw123/fixed-iris-project" target="_blank" rel="noopener">
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    GitHub
+  </a>
+</div></nav>
+
+<header><div class="wrap">
+  <p class="eyebrow">Iris Capture · On-device</p>
+  <h1>See yourself <span class="accent">sharp</span></h1>
+  <p class="tag">Your phone captures your iris. AI <b>segments</b> it and <b>upscales it 4×</b> — revealing the crypts, furrows, and fibers your camera blurs away.</p>
+  <div class="pills">
+    <span class="pill"><b>Iris-SAM</b> segmentation</span>
+    <span class="pill"><b>Real-ESRGAN</b> 4× upscale</span>
+    <span class="pill">Guided capture</span>
+    <span class="pill">Free · no account</span>
+  </div>
+</div></header>
+
+<section class="ba-section"><div class="wrap">
+  <div class="ba-head"><h2>Drag to compare — raw capture vs AI-enhanced</h2></div>
+  <div class="ba" id="ba">
+    <img src="after.png" alt="AI-enhanced iris" />
+    <div class="top"><img src="before.png" alt="Raw camera capture" /></div>
+    <span class="lbl l">Raw capture</span>
+    <span class="lbl r">AI · 4×</span>
+    <div class="divider"></div>
+    <div class="handle">⇆</div>
+    <input type="range" min="0" max="100" value="50" aria-label="Comparison slider" id="baRange" />
+  </div>
+  <p class="ba-caption">Same eye, same frame. Left: straight off the camera. Right: segmented + 4× super-resolved.</p>
+</div></section>
+
+<section class="block"><div class="wrap">
+  <h2 class="h2">How it works</h2>
+  <p class="sub">Four steps, entirely guided. The hard part — holding the shot steady and sharp — is automated.</p>
+  <div class="steps">
+    <div class="step"><div class="n">01</div><h3>Guided capture</h3><p>MediaPipe tracks your eye and auto-fires the shutter only when distance, focus, and lighting are right.</p></div>
+    <div class="step"><div class="n">02</div><h3>Segment</h3><p>Iris-SAM (a fine-tuned Segment Anything model) isolates the iris from lashes, lids, and sclera.</p></div>
+    <div class="step"><div class="n">03</div><h3>Upscale 4×</h3><p>Real-ESRGAN super-resolves the crop, recovering texture detail at four times the resolution.</p></div>
+    <div class="step"><div class="n">04</div><h3>Download</h3><p>Both the HD enhanced image and your original download instantly — free, no account, no watermark.</p></div>
+  </div>
+</div></section>
+
+<section class="block"><div class="wrap">
+  <div class="split">
+    <img src="screens/intro.png" alt="Eyedentity app — intro screen" />
+    <div>
+      <h2 class="h2" style="text-align:left;margin-bottom:18px">A 4-stage quality gate</h2>
+      <ul class="feat">
+        <li><span class="ic">◉</span><div><b>Distance</b><span>Holds until the iris fills the right share of the frame.</span></div></li>
+        <li><span class="ic">⌣</span><div><b>Liveness</b><span>An eyebrow-raise check — a printed photo can't pass it.</span></div></li>
+        <li><span class="ic">◎</span><div><b>Focus</b><span>Laplacian sharpness must clear a threshold before capture.</span></div></li>
+        <li><span class="ic">☀</span><div><b>Lighting</b><span>Brightness is measured live; the shutter waits for good light.</span></div></li>
+      </ul>
+    </div>
+  </div>
+</div></section>
+
+<section class="block"><div class="wrap">
+  <h2 class="h2">Built with</h2>
+  <p class="sub">A Next.js front end talking to a Python AI service.</p>
+  <div class="stack">
+    <span class="chip">Next.js 16 <i>· TypeScript</i></span>
+    <span class="chip">FastAPI <i>· Python 3.12</i></span>
+    <span class="chip">MediaPipe <i>· Face Mesh</i></span>
+    <span class="chip">Iris-SAM <i>· Segment Anything</i></span>
+    <span class="chip">Real-ESRGAN <i>· x4v3</i></span>
+    <span class="chip">TailwindCSS</span>
+  </div>
+</div></section>
+
+<section class="block cta"><div class="wrap">
+  <h2 class="h2">See the code</h2>
+  <p class="sub">Full-stack source — guided-capture front end and the AI pipeline back end.</p>
+  <a href="https://github.com/pnsw123/fixed-iris-project" target="_blank" rel="noopener">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    pnsw123/fixed-iris-project
+  </a>
+</div></section>
+
+<footer><div class="wrap">
+  Eyedentity · AI iris enhancement · on-device guided capture · free.
+  &nbsp;·&nbsp; <a href="https://github.com/pnsw123/fixed-iris-project">Source on GitHub</a>
+</div></footer>
+
+<script>
+  (function(){
+    var ba = document.getElementById('ba');
+    var range = document.getElementById('baRange');
+    function set(v){ ba.style.setProperty('--pos', v + '%'); }
+    range.addEventListener('input', function(){ set(range.value); });
+    set(50);
+  })();
+</script>
+</body>
+</html>

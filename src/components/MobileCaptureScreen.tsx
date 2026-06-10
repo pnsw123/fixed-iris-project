@@ -585,7 +585,6 @@ export default function MobileCaptureScreen({
         stopAnalysisLoop();
         stopCamera();
         onCaptureComplete(captureData);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentReport, stopCamera, stopAnalysisLoop, onCaptureComplete]);
 
     // Trigger capture when countdown reaches -1

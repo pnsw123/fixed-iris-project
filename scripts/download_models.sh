@@ -47,11 +47,26 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 3. IrisSAM fine-tuned weights (private — fetched only if a URL is provided)
+#    Set IRIS_SAM_MODEL_URL to a reachable URL (e.g. a signed S3/R2 link) to
+#    have the private weight downloaded automatically — used by the Render build
+#    so the deployed backend can actually run the segmentation step.
+# ---------------------------------------------------------------------------
+IRIS_FILE="$MODELS_DIR/IrisSAM_model.pt"
+if [ -f "$IRIS_FILE" ]; then
+  echo "✓ IrisSAM_model.pt already exists — skipping."
+elif [ -n "${IRIS_SAM_MODEL_URL:-}" ]; then
+  echo "↓ Downloading IrisSAM_model.pt from IRIS_SAM_MODEL_URL ..."
+  curl -L --fail --progress-bar -o "$IRIS_FILE" "$IRIS_SAM_MODEL_URL"
+  echo "✓ IrisSAM_model.pt downloaded."
+else
+  echo "⚠  IRIS_SAM_MODEL_URL not set — IrisSAM_model.pt NOT downloaded."
+  echo "   The backend will start but report unhealthy until this weight is present."
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 echo ""
 echo "Done. Models directory contents:"
 ls -lh "$MODELS_DIR"
-echo ""
-echo "⚠  IrisSAM_model.pt is NOT publicly available and was NOT downloaded."
-echo "   See README.md § '3. Download AI Model Weights' for how to obtain it."

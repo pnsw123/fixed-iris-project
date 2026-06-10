@@ -13,8 +13,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
 
-# Mount model weights at runtime (they are gitignored):
-# docker run -v /path/to/models:/app/models ...
+# Model weights (gitignored) are not baked into the image. Provide them at
+# runtime by mounting a volume into /app/models:
+#   docker run -v /path/to/models:/app/models ...
+# (The Render deploy uses the python runtime + scripts/download_models.sh
+#  instead — see backend/render.yaml.)
 
 EXPOSE 8000
 CMD ["python", "app.py"]

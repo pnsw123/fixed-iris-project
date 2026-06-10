@@ -1,35 +1,36 @@
 ---
+# Render Blueprint for the Eyedentity FastAPI backend (free, no paywall).
+#
+# Setup: Render Dashboard → New → Blueprint → connect the GitHub repo.
+# The AI models (torch + SAM + Real-ESRGAN) need ~2 GB RAM — the free instance
+# (512 MB) is too small, so use a plan with enough memory.
+#
+# Required envVars to set in the dashboard (marked sync:false):
+#   IRIS_SAM_MODEL_URL  — signed URL to your private IrisSAM_model.pt so the
+#                         build can fetch it (without it /health stays 503).
+#   CORS_ORIGINS        — JSON array with your Vercel frontend origin, e.g.
+#                         ["https://eyedentity.vercel.app"]
 services:
   - type: web
     name: eyedentity-backend
-    env: python
-    buildCommand: pip install -r requirements.txt
+    runtime: python
+    rootDir: backend
+    plan: standard
+    buildCommand: pip install -r requirements.txt && bash ../scripts/download_models.sh
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
     envVars:
       - key: ENV
         value: production
       - key: PYTHON_VERSION
-        value: 3.12.0
+        value: "3.12.0"
+      - key: DEVICE
+        value: cpu
+      - key: TRUSTED_PROXY
+        value: "true"
       - key: PURCHASE_BACKEND
-        value: redis
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: eyedentity-redis
-          property: connectionString
-      - key: JWT_SECRET_KEY
-        sync: false
-      - key: SENDGRID_API_KEY
-        sync: false
-      - key: LEMONSQUEEZY_WEBHOOK_SECRET
-        sync: false
-      - key: BASE_URL
+        value: memory
+      - key: IRIS_SAM_MODEL_URL
         sync: false
       - key: CORS_ORIGINS
         sync: false
-
-databases:
-  - type: redis
-    name: eyedentity-redis
-    plan: free
-    maxmemoryPolicy: allkeys-lru

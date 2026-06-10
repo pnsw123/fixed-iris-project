@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import Image from 'next/image';
+import { ChevronsLeftRight } from 'lucide-react';
 import { useDebugMode } from '@/hooks/useDebugMode';
 
 interface ComparisonSliderProps {
@@ -217,7 +218,7 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
                         tabIndex={0}
                         onKeyDown={handleKeyDown}
                     >
-                        ⇆
+                        <ChevronsLeftRight aria-hidden="true" size={20} />
                     </div>
                 </div>
             </div>

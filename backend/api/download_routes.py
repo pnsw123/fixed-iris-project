@@ -235,7 +235,7 @@ async def download_from_email_link(download_token: str):
     
     # Check payment status
     if purchase.status != PurchaseStatus.PAID:
-        logger.warning(f"Email link download for unpaid purchase: {image_token[:8]}...")
+        logger.warning(f"Email link download for unpaid purchase: {image_token[:8] if image_token else 'none'}...")
         return HTMLResponse("""
         <!DOCTYPE html>
         <html>

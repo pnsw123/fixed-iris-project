@@ -136,7 +136,7 @@ async def lemon_squeezy_webhook(request: Request):
                 else:
                     logger.warning(f"No email for order {order_id} - skipping email backup")
             else:
-                logger.error(f"Failed to mark as paid - token not found: {image_token[:8]}...")
+                logger.error(f"Failed to mark as paid - token not found: {image_token[:8] if image_token else 'none'}...")
         else:
             logger.info(f"Order status is '{status}', not 'paid' - no action taken")
         

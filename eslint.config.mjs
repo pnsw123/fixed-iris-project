@@ -36,6 +36,8 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": "error",
       "react-hooks/exhaustive-deps": "error",
+      "@typescript-eslint/strict-boolean-expressions": "error",
+      "@typescript-eslint/prefer-nullish-coalescing": "error",
     },
   },
 ]);

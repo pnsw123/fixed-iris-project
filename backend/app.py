@@ -40,6 +40,7 @@ import time
 from typing import Optional
 import logging
 import asyncio
+from contextlib import asynccontextmanager
 
 from config import settings
 
@@ -60,10 +61,9 @@ def _safe_error_msg(e: Exception) -> str:
 from services.iris_sam_service import IrisSAMService
 from services.esrgan_service import RealESRGANService
 from services.pipeline_service import IrisPipelineService
-from services.purchase_service import purchase_service
+from services.image_store import image_store
 from app_utils.image_utils import numpy_to_base64, create_preview
 from app_utils.validation import validate_image_upload
-from api.webhook_routes import router as webhook_router
 from api.download_routes import router as download_router
 
 # Configure logging
@@ -73,6 +73,80 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+async def _cleanup_expired_images() -> None:
+    """Background task: evict expired stored images every 5 minutes."""
+    while True:
+        try:
+            count = image_store.cleanup_expired()
+            if count > 0:
+                logger.info(f"[Cleanup] Removed {count} expired images")
+        except Exception as e:
+            logger.error(f"[Cleanup] Error: {e}")
+        await asyncio.sleep(300)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load models on startup, run the cleanup task, tear down on shutdown.
+
+    All synchronous torch.load / RealESRGANer calls are offloaded to a thread
+    via asyncio.to_thread() so health-check routes stay responsive while
+    weights load.  On failure the server keeps running with models_loaded=False
+    so platform readiness probes hit /health and report unhealthy instead of
+    crash-looping.
+    """
+    global iris_sam_service, esrgan_service, pipeline_service, models_loaded
+
+    logger.info("=" * 60)
+    logger.info("Starting Iris Processing Backend")
+    logger.info("=" * 60)
+    logger.info(f"Device: {settings.device}")
+    logger.info(f"Iris-SAM model: {settings.iris_sam_model}")
+    logger.info(f"SAM checkpoint: {settings.sam_checkpoint}")
+    logger.info(f"ESRGAN model: {settings.esrgan_model}")
+
+    def _load_models() -> tuple:
+        """Synchronous model initialisation — runs in a thread pool worker."""
+        logger.info("[Startup] Loading Iris-SAM model...")
+        _iris = IrisSAMService(
+            model_path=settings.iris_sam_model,
+            sam_checkpoint=settings.sam_checkpoint,
+            device=settings.device,
+        )
+        logger.info("[Startup] Loading Real-ESRGAN model...")
+        _esrgan = RealESRGANService(
+            model_path=settings.esrgan_model,
+            device=settings.device,
+            scale=4,
+        )
+        logger.info("[Startup] Initializing pipeline...")
+        _pipeline = IrisPipelineService(_iris, _esrgan)
+        return _iris, _esrgan, _pipeline
+
+    try:
+        iris_sam_service, esrgan_service, pipeline_service = await asyncio.to_thread(
+            _load_models
+        )
+        models_loaded = True
+        logger.info("=" * 60)
+        logger.info("All models and services loaded successfully")
+        logger.info("=" * 60)
+    except Exception as e:
+        logger.error(f"Failed to load models: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        models_loaded = False
+
+    cleanup_task = asyncio.create_task(_cleanup_expired_images())
+    logger.info("[Startup] Image cleanup task started")
+
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Eyedentity API",
@@ -80,6 +154,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -126,93 +201,7 @@ GPU_SEMAPHORE = asyncio.Semaphore(1)
 
 
 # Include API routers
-app.include_router(webhook_router)
 app.include_router(download_router)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Load models on server startup without blocking the event loop.
-
-    All synchronous torch.load / RealESRGANer calls are offloaded to a thread
-    via asyncio.to_thread() so health-check and webhook routes remain responsive
-    while weights are being loaded from disk/volume.
-
-    On failure the server continues running with models_loaded=False so that
-    platform readiness probes (Render, Railway) can reach /health and report
-    the container as unhealthy instead of crash-looping.
-    """
-    global iris_sam_service, esrgan_service, pipeline_service, models_loaded
-
-    logger.info("=" * 60)
-    logger.info("🚀 Starting Iris Processing Backend")
-    logger.info("=" * 60)
-    logger.info(f"Device: {settings.device}")
-    logger.info(f"Iris-SAM model: {settings.iris_sam_model}")
-    logger.info(f"SAM checkpoint: {settings.sam_checkpoint}")
-    logger.info(f"ESRGAN model: {settings.esrgan_model}")
-
-    def _load_models() -> tuple:
-        """Synchronous model initialisation — runs in a thread pool worker."""
-        logger.info("[Startup] Loading Iris-SAM model...")
-        _iris = IrisSAMService(
-            model_path=settings.iris_sam_model,
-            sam_checkpoint=settings.sam_checkpoint,
-            device=settings.device
-        )
-
-        logger.info("[Startup] Loading Real-ESRGAN model...")
-        _esrgan = RealESRGANService(
-            model_path=settings.esrgan_model,
-            device=settings.device,
-            scale=4
-        )
-
-        logger.info("[Startup] Initializing pipeline...")
-        _pipeline = IrisPipelineService(_iris, _esrgan)
-
-        return _iris, _esrgan, _pipeline
-
-    try:
-        # Offload blocking torch.load / RealESRGANer init to a thread so the
-        # event loop stays free for health checks during the multi-second load.
-        iris_sam_service, esrgan_service, pipeline_service = await asyncio.to_thread(
-            _load_models
-        )
-        models_loaded = True
-
-        logger.info("=" * 60)
-        logger.info("✅ All models and services loaded successfully!")
-        logger.info("=" * 60)
-
-    except Exception as e:
-        logger.error(f"❌ Failed to load models: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        # Do NOT re-raise: let FastAPI finish starting so /health can respond
-        # with 503 and platform probes report the container as unhealthy rather
-        # than crashing the process entirely.
-        models_loaded = False
-
-
-async def cleanup_expired_purchases():
-    """Background task to clean up expired purchases."""
-    while True:
-        try:
-            count = purchase_service.cleanup_expired()
-            if count > 0:
-                logger.info(f"[Cleanup] Removed {count} expired purchases")
-        except Exception as e:
-            logger.error(f"[Cleanup] Error: {e}")
-        
-        await asyncio.sleep(300)  # Run every 5 minutes
-
-
-@app.on_event("startup")
-async def start_cleanup_task():
-    """Start the purchase cleanup background task."""
-    asyncio.create_task(cleanup_expired_purchases())
-    logger.info("[Startup] Purchase cleanup task started")
 
 
 @app.get("/health")
@@ -360,30 +349,27 @@ async def process_iris(
         original_pil.save(original_byte_io, format='PNG')
         original_bytes = original_byte_io.getvalue()
 
-        # Create Pending Purchase
-        # Stores HD image + original in memory, accessible only via token
-        purchase_token = purchase_service.create_purchase(
-            hd_image_data=hd_bytes,
+        # Store the HD + original images under an opaque token so the large
+        # binary payload stays out of this JSON response.  The frontend fetches
+        # them freely via /api/download-hd and /api/download-original.
+        download_token = image_store.store(
+            hd_data=hd_bytes,
             preview_data=preview_bytes,
-            original_data=original_bytes
+            original_data=original_bytes,
         )
-        
+
         response = {
             "success": True,
             "processing_time_ms": processing_time,
             "original_size": result["original_size"],
             "upscaled_size": result["upscaled_size"],
-            
-            # The public preview (watermarked)
+
+            # Inline preview shown immediately in the browser
             "preview_image": preview_b64,
-            
-            # NO HD IMAGE HERE! 
-            # Replaced with token for purchasing
-            "purchase_token": purchase_token,
-            
-            # Removed upscaled_image to prevent free download
-            # "upscaled_image": ..., 
-            
+
+            # Token used to download the full-resolution HD and original images
+            "download_token": download_token,
+
             "metadata": result["metadata"]
         }
 

@@ -48,24 +48,12 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
-    # Email — SendGrid
-    sendgrid_api_key: str = ""
-    from_email: str = "downloads@eyedentity.com"
-
-    # Auth — JWT
-    jwt_secret_key: str = "dev-secret-key-change-in-production"
-
-    # Payment — Lemon Squeezy
-    lemonsqueezy_webhook_secret: str = ""
-
-    # Server — public base URL (used in download links)
-    base_url: str = "https://localhost:3000"
-
     # Redis — required when PURCHASE_BACKEND=redis
-    # If unset, PurchaseService uses in-memory storage (dev only).
+    # If unset, the image store uses in-memory storage (dev only).
     redis_url: str = ""
 
-    # Purchase storage backend: "memory" (default, dev) or "redis" (production)
+    # Image storage backend: "memory" (default, dev) or "redis" (production).
+    # Env var kept as PURCHASE_BACKEND for deployment compatibility.
     purchase_backend: str = "memory"
 
     # Trusted reverse-proxy flag (issue #126).

@@ -55,9 +55,9 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                 irisRadius,
             });
 
-            if (result.success && result.preview_image && result.purchase_token) {
+            if (result.success && result.preview_image && result.download_token) {
                 setPreviewImage(result.preview_image);
-                setSessionToken(result.purchase_token);
+                setSessionToken(result.download_token);
                 toast.success('Enhancement complete — ready to download!');
             } else {
                 throw new Error(result.error || 'Enhancement failed');
@@ -81,8 +81,8 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
 
         try {
             const endpoint = type === 'hd'
-                ? `${BACKEND_URL}/api/download-demo`
-                : `${BACKEND_URL}/api/download-original-demo`;
+                ? `${BACKEND_URL}/api/download-hd`
+                : `${BACKEND_URL}/api/download-original`;
 
             const filename = type === 'hd'
                 ? 'eyedentity-hd.png'

@@ -41,11 +41,12 @@
  *   `irisRadius` (optional) lets the backend derive a tighter crop region before
  *   running SAM, further reducing GPU memory consumption.
  *
- * ── session_token contract ─────────────────────────────────────────────────────
+ * ── download_token contract ────────────────────────────────────────────────────
  *
- *   The `/api/v1/process-iris` endpoint returns a `purchase_token` (session key) in
- *   its response JSON. This token is a server-side reference to the processed image
- *   stored temporarily on the backend.
+ *   The `/api/v1/process-iris` endpoint returns a `download_token` in its response
+ *   JSON. This token is a server-side reference to the processed images (HD +
+ *   original) held temporarily on the backend so the large binary payload stays
+ *   out of the JSON response.
  *
  *   CRITICAL INVARIANT: once the frontend receives a token it MUST NOT call
  *   `/api/v1/process-iris` again for the same capture — re-processing wastes GPU time.
@@ -53,9 +54,9 @@
  *   Flow (free, no payment):
  *     1. Receive token from this client.
  *     2. Display the preview_image to the user.
- *     3. Pass token to `/api/download-demo` and `/api/download-original-demo`.
+ *     3. Pass token to `/api/download-hd` and `/api/download-original`.
  *
- *   The token expires after 30 minutes of server inactivity.
+ *   The token expires one hour after processing.
  *
  * ── HTTP error codes ──────────────────────────────────────────────────────────
  *
@@ -85,8 +86,8 @@ export interface ProcessIrisResponse {
   processing_time_ms?: number;
   original_size?: [number, number];
   upscaled_size?: [number, number];
-  preview_image?: string;    // Watermarked low-res preview (base64 data URL)
-  purchase_token?: string;   // Session token — passed to download endpoints
+  preview_image?: string;    // Low-res preview (base64 data URL)
+  download_token?: string;   // Token — passed to /api/download-hd and /api/download-original
   mask?: string;
   intermediate_iris?: string;
   metadata?: {

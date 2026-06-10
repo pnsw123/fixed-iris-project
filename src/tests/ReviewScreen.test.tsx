@@ -256,16 +256,16 @@ describe('ReviewScreen — downloadBlobReliable contract', () => {
         expect(hd).not.toBe(original);
     });
 
-    it('download-demo endpoint is used for HD type', () => {
+    it('download-hd endpoint is used for HD type', () => {
         const type: 'hd' | 'original' = 'hd';
-        const endpoint = type === 'hd' ? '/api/download-demo' : '/api/download-original-demo';
-        expect(endpoint).toBe('/api/download-demo');
+        const endpoint = type === 'hd' ? '/api/download-hd' : '/api/download-original';
+        expect(endpoint).toBe('/api/download-hd');
     });
 
-    it('download-original-demo endpoint is used for original type', () => {
+    it('download-original endpoint is used for original type', () => {
         const type: 'hd' | 'original' = 'original';
-        const endpoint = type === 'hd' ? '/api/download-demo' : '/api/download-original-demo';
-        expect(endpoint).toBe('/api/download-original-demo');
+        const endpoint = type === 'hd' ? '/api/download-hd' : '/api/download-original';
+        expect(endpoint).toBe('/api/download-original');
     });
 });
 

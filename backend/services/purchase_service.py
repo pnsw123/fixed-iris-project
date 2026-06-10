@@ -485,7 +485,7 @@ class PurchaseService:
     """
 
     def __init__(self) -> None:
-        backend = os.environ.get("PURCHASE_BACKEND", "memory").strip().lower()
+        backend = settings.purchase_backend.strip().lower()
 
         if backend == "redis":
             if not settings.redis_url:

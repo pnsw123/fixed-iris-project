@@ -603,8 +603,6 @@ User opens /capture
         → /result page
 ```
 
-![Capture Flow](docs/capture-stages/capture-flow.gif)
-
 ---
 
 ## 🔒 Security Notes

@@ -353,6 +353,65 @@ mkcert -key-file .cert/localhost-key.pem \
 
 ---
 
+## 🛠 Troubleshooting
+
+Common failure modes, causes, and fixes for new developers.
+
+| # | Symptom | Cause | Fix |
+|---|---------|-------|-----|
+| 1 | **Camera permission denied / camera not starting** | Browser blocks `getUserMedia` on plain HTTP | Run frontend on HTTPS (see step 4 — SSL setup). Never use `http://localhost`. |
+| 2 | **Backend crashes on startup with `FileNotFoundError`** | Model weights missing from `backend/models/` or file name mismatch | Download all three weight files and verify exact names: `IrisSAM_model.pt`, `sam_vit_b_01ec64.pth`, `realesr-general-x4v3.pth`. See Step 3 of Quick Start. |
+| 3 | **`AttributeError: module 'torchvision.transforms.functional_tensor' has no attribute 'rgb_to_grayscale'`** | torchvision ≥ 0.16 moved `rgb_to_grayscale` out of `functional_tensor` | Add the compatibility shim below. |
+| 4 | **CORS error in browser console** (`Access-Control-Allow-Origin` missing) | Backend `CORS_ORIGINS` list does not include the frontend origin (e.g. `https://localhost:3005`) | Set `CORS_ORIGINS` in `backend/.env` to include your frontend port. See example below. |
+| 5 | **SSL certificate not trusted / browser shows "Your connection is not private"** | `mkcert -install` step was skipped — local CA not in system trust store | Run `mkcert -install` once, then re-generate certs and restart the browser. |
+
+### Fix 3 — torchvision compatibility shim
+
+Add this near the top of `backend/app.py` (before any torchvision import):
+
+```python
+# torchvision ≥ 0.16 compatibility shim
+import torchvision.transforms.functional as _F
+import types as _types
+
+if not hasattr(_types.ModuleType, "_functional_tensor_shim_applied"):
+    import sys
+    _ft = sys.modules.get("torchvision.transforms.functional_tensor")
+    if _ft is None:
+        import torchvision.transforms.functional as _ft  # type: ignore
+    if not hasattr(_ft, "rgb_to_grayscale"):
+        _ft.rgb_to_grayscale = _F.rgb_to_grayscale
+```
+
+### Fix 4 — CORS origins for non-default port
+
+In `backend/.env`, set `CORS_ORIGINS` to a JSON array that includes every origin your frontend uses:
+
+```env
+CORS_ORIGINS=["https://localhost:3000","https://localhost:3005","https://127.0.0.1:3000"]
+```
+
+> **Tip:** If you change the Next.js dev port via `--port`, you must add that origin here or every API call will be blocked by the browser.
+
+### Fix 5 — SSL cert not trusted
+
+```bash
+# Run once per machine — installs local CA into system/browser trust stores
+mkcert -install
+
+# Then regenerate certs
+mkdir -p .cert
+mkcert -key-file .cert/localhost-key.pem \
+       -cert-file .cert/localhost.pem \
+       localhost 127.0.0.1 ::1
+
+# Restart your browser completely (not just the tab)
+```
+
+> On macOS you may also need to open **Keychain Access → System**, find the `mkcert` certificate, and set it to **Always Trust**.
+
+---
+
 ## 📄 License
 
 Private repository — All rights reserved.

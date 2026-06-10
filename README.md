@@ -7,6 +7,7 @@
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)
 ![License](https://img.shields.io/badge/License-Private-red)
 ![CI](https://github.com/pnsw123/fixed-iris-project/actions/workflows/ci.yml/badge.svg)
+<!-- GitHub repo slug: pnsw123/fixed-iris-project — searchable via the "eyedentity" topic tag -->
 
 ---
 
@@ -125,8 +126,8 @@ sequenceDiagram
 ### 1. Clone & Install Frontend
 
 ```bash
-git clone https://github.com/pnsw123/fixed-iris-project.git
-cd fixed-iris-project
+git clone https://github.com/pnsw123/fixed-iris-project.git eyedentity
+cd eyedentity
 npm install
 ```
 

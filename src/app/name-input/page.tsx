@@ -42,7 +42,7 @@ export default function NameInputPage() {
 
     return (
         <div className="min-h-screen bg-black flex flex-col text-white relative overflow-hidden">
-            <SpotlightBackground />
+            <SpotlightBackground color="rgba(52, 211, 153, 0.20)" />
 
             {/* Header */}
             <AppHeader title="IDENTITY" showBack />

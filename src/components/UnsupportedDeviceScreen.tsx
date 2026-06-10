@@ -17,7 +17,7 @@ export default function UnsupportedDeviceScreen({ cameraInfo }: UnsupportedDevic
     return (
         <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-white">
             {/* Full-page Spotlight matching Home screen */}
-            <SpotlightBackground />
+            <SpotlightBackground color="rgba(244, 63, 94, 0.18)" />
 
             {/* Header - Aligned with Home screen */}
             <div className="px-6 py-6 relative z-10">

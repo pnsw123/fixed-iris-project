@@ -365,7 +365,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
 
     return (
         <div className="min-h-screen bg-black flex flex-col relative overflow-hidden">
-            <SpotlightBackground />
+            <SpotlightBackground color="rgba(251, 191, 36, 0.20)" />
 
             {/* Page entry: whole screen slides up + fades in */}
             <motion.div

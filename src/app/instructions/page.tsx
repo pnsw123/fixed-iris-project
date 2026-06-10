@@ -126,7 +126,7 @@ export default function InstructionsPage() {
     // Camera meets requirements - show instructions
     return (
         <div className="min-h-screen bg-black flex flex-col text-white relative overflow-hidden">
-            <SpotlightBackground />
+            <SpotlightBackground color="rgba(167, 139, 250, 0.22)" />
             {/* Header */}
             <AppHeader title="INSTRUCTIONS" showBack />
 

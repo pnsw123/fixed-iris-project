@@ -94,6 +94,11 @@ iris_sam_service: Optional[IrisSAMService] = None
 esrgan_service: Optional[RealESRGANService] = None
 pipeline_service: Optional[IrisPipelineService] = None
 
+# Set to True only after all models load successfully.
+# /health returns 503 while False — lets the platform start the container and
+# report unhealthy rather than crash-loop when model weights are missing.
+models_loaded: bool = False
+
 # GPU access semaphore - only 1 request processes at a time
 # Prevents OOM when multiple users submit simultaneously
 GPU_SEMAPHORE = asyncio.Semaphore(1)
@@ -106,37 +111,54 @@ app.include_router(download_router)
 
 @app.on_event("startup")
 async def startup_event():
-    """Load models on server startup."""
-    global iris_sam_service, esrgan_service, pipeline_service
+    """Load models on server startup without blocking the event loop.
+
+    All synchronous torch.load / RealESRGANer calls are offloaded to a thread
+    via asyncio.to_thread() so health-check and webhook routes remain responsive
+    while weights are being loaded from disk/volume.
+
+    On failure the server continues running with models_loaded=False so that
+    platform readiness probes (Render, Railway) can reach /health and report
+    the container as unhealthy instead of crash-looping.
+    """
+    global iris_sam_service, esrgan_service, pipeline_service, models_loaded
 
     logger.info("=" * 60)
     logger.info("🚀 Starting Iris Processing Backend")
     logger.info("=" * 60)
+    logger.info(f"Device: {settings.device}")
+    logger.info(f"Iris-SAM model: {settings.iris_sam_model}")
+    logger.info(f"SAM checkpoint: {settings.sam_checkpoint}")
+    logger.info(f"ESRGAN model: {settings.esrgan_model}")
 
-    try:
-        logger.info(f"Device: {settings.device}")
-        logger.info(f"Iris-SAM model: {settings.iris_sam_model}")
-        logger.info(f"SAM checkpoint: {settings.sam_checkpoint}")
-        logger.info(f"ESRGAN model: {settings.esrgan_model}")
-
+    def _load_models() -> tuple:
+        """Synchronous model initialisation — runs in a thread pool worker."""
         logger.info("[Startup] Loading Iris-SAM model...")
-        iris_sam_service = IrisSAMService(
+        _iris = IrisSAMService(
             model_path=settings.iris_sam_model,
             sam_checkpoint=settings.sam_checkpoint,
             device=settings.device
         )
 
         logger.info("[Startup] Loading Real-ESRGAN model...")
-        esrgan_service = RealESRGANService(
+        _esrgan = RealESRGANService(
             model_path=settings.esrgan_model,
             device=settings.device,
             scale=4
         )
 
         logger.info("[Startup] Initializing pipeline...")
-        pipeline_service = IrisPipelineService(iris_sam_service, esrgan_service)
+        _pipeline = IrisPipelineService(_iris, _esrgan)
 
+        return _iris, _esrgan, _pipeline
 
+    try:
+        # Offload blocking torch.load / RealESRGANer init to a thread so the
+        # event loop stays free for health checks during the multi-second load.
+        iris_sam_service, esrgan_service, pipeline_service = await asyncio.to_thread(
+            _load_models
+        )
+        models_loaded = True
 
         logger.info("=" * 60)
         logger.info("✅ All models and services loaded successfully!")
@@ -146,7 +168,10 @@ async def startup_event():
         logger.error(f"❌ Failed to load models: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise
+        # Do NOT re-raise: let FastAPI finish starting so /health can respond
+        # with 503 and platform probes report the container as unhealthy rather
+        # than crashing the process entirely.
+        models_loaded = False
 
 
 async def cleanup_expired_purchases():
@@ -171,11 +196,26 @@ async def start_cleanup_task():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint.
+
+    Returns 503 while models are still loading (or failed to load) so that
+    platform readiness probes (Render, Railway) can distinguish between
+    'container starting' and 'container crashed'.  Returns 200 once all
+    models are in memory and ready to serve requests.
+    """
+    if not models_loaded:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "loading",
+                "models_loaded": False,
+                "device": settings.device,
+            }
+        )
     return {
         "status": "ok",
-        "models_loaded": all([iris_sam_service, esrgan_service, pipeline_service]),
-        "device": settings.device
+        "models_loaded": True,
+        "device": settings.device,
     }
 
 

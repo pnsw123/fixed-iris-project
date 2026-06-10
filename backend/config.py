@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import ConfigDict, field_validator
 from typing import List
 import logging
 import re
@@ -109,9 +109,7 @@ class Settings(BaseSettings):
                 "(localhost/LAN). Set CORS_ORIGINS to your real frontend origin(s)."
             )
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = ConfigDict(env_file=".env", case_sensitive=False)
 
 
 settings = Settings()

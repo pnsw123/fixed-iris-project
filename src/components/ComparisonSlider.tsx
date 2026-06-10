@@ -7,6 +7,11 @@ import { ChevronsLeftRight } from 'lucide-react';
 import { useDebugMode } from '@/hooks/useDebugMode';
 import { useInView } from 'motion/react';
 
+// Exported so tests can import and validate against the real values.
+export const ANIMATION_INITIAL_DELAY_MS = 400;
+export const ANIMATION_DURATION_MS = 2000;
+export const ANIMATION_TARGET_PERCENT = 80;
+
 interface ComparisonSliderProps {
     compact?: boolean;
 }
@@ -59,9 +64,9 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
     useEffect(() => {
         if (!isInView) return;
 
-        const initialDelay = 400; // Short delay after viewport entry
-        const duration = 2000; // Slower, smoother animation
-        const targetPercent = 80; // Stop at 80% instead of 100%
+        const initialDelay = ANIMATION_INITIAL_DELAY_MS;
+        const duration = ANIMATION_DURATION_MS;
+        const targetPercent = ANIMATION_TARGET_PERCENT;
 
         // Easing function for smooth animation (ease-in-out)
         const easeInOutCubic = (t: number): number => {

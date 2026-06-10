@@ -15,6 +15,11 @@
  *   - Animation easing function (easeInOutCubic) boundary values
  */
 import { describe, it, expect } from 'vitest';
+import {
+    ANIMATION_INITIAL_DELAY_MS,
+    ANIMATION_DURATION_MS,
+    ANIMATION_TARGET_PERCENT,
+} from '@/components/ComparisonSlider';
 
 // ---------------------------------------------------------------------------
 // Helpers — extracted pure logic matching ComparisonSlider.tsx
@@ -194,19 +199,15 @@ describe('ComparisonSliderProps', () => {
 
 describe('ComparisonSlider — animation constants', () => {
     it('auto-animation stops at 80% (not 100%)', () => {
-        // targetPercent = 80 per component source
-        const targetPercent = 80;
-        expect(targetPercent).toBe(80);
-        expect(targetPercent).toBeLessThan(100);
+        expect(ANIMATION_TARGET_PERCENT).toBe(80);
+        expect(ANIMATION_TARGET_PERCENT).toBeLessThan(100);
     });
 
-    it('initial delay is 800ms', () => {
-        const initialDelay = 800;
-        expect(initialDelay).toBe(800);
+    it('initial delay is 400ms', () => {
+        expect(ANIMATION_INITIAL_DELAY_MS).toBe(400);
     });
 
     it('animation duration is 2000ms', () => {
-        const duration = 2000;
-        expect(duration).toBe(2000);
+        expect(ANIMATION_DURATION_MS).toBe(2000);
     });
 });

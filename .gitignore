@@ -75,3 +75,30 @@ Data/
 tribal_validation_pipeline/
 *.dylib
 *.pth
+
+# Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS artifacts
+Thumbs.db
+._*
+
+# Python virtual environments
+.venv/
+env/
+
+# Logs
+*.log
+
+# Test artifacts
+.coverage
+coverage.xml
+
+# Compiled Python extensions
+*.so
+
+# SSL certificates (security risk)
+.cert/

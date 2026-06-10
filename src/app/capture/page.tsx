@@ -1,17 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import MobileCaptureScreen, { CaptureData } from '@/components/MobileCaptureScreen';
+import dynamic from 'next/dynamic';
+import type { CaptureData } from '@/components/MobileCaptureScreen';
+
+// Lazy-load MobileCaptureScreen (and its MediaPipe WASM dependency) only when
+// the capture route is actually visited — keeps MediaPipe out of the initial
+// bundle for all other pages.
+const MobileCaptureScreen = dynamic(
+    () => import('@/components/MobileCaptureScreen'),
+    { ssr: false }
+);
 
 export default function CapturePage() {
     const router = useRouter();
-    const [isMounted, setIsMounted] = useState(false);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setIsMounted(true), 0);
-        return () => clearTimeout(timer);
-    }, []);
 
     const handleBack = () => {
         router.back();
@@ -22,8 +24,6 @@ export default function CapturePage() {
         sessionStorage.setItem('heritage_capture', JSON.stringify(data));
         router.push('/result');
     };
-
-    if (!isMounted) return null;
 
     return (
         <MobileCaptureScreen

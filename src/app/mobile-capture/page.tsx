@@ -1,8 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import MobileCaptureScreen, { CaptureData } from '@/components/MobileCaptureScreen';
+import dynamic from 'next/dynamic';
+import type { CaptureData } from '@/components/MobileCaptureScreen';
 import ReviewScreen from '@/components/ReviewScreen';
+
+// Lazy-load MobileCaptureScreen (and its MediaPipe WASM dependency) only when
+// the mobile-capture route is actually visited — keeps MediaPipe out of the
+// initial bundle for all other pages.
+const MobileCaptureScreen = dynamic(
+    () => import('@/components/MobileCaptureScreen'),
+    { ssr: false }
+);
 
 type AppState = 'capture' | 'review';
 

@@ -67,9 +67,10 @@ export default function IrisTarget({
                         strokeDasharray={`${Math.PI * targetSize} ${Math.PI * targetSize}`}
                         strokeDashoffset={Math.PI * targetSize * (countdown / 3)}
                         className="transition-all duration-1000 ease-linear origin-center"
-                        style={{ 
+                        style={{
                             transform: `rotate(-90deg)`,
-                            transformOrigin: `${targetX}px ${targetY}px`
+                            transformOrigin: 'center',
+                            transformBox: 'fill-box'
                         }}
                     />
                 )}

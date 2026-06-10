@@ -39,8 +39,8 @@ export default function IrisTarget({
     const targetY = irisPosition?.y || window.innerHeight / 2;
 
     return (
-        <div className="absolute inset-0 pointer-events-none">
-            <svg className="w-full h-full">
+        <div className="absolute inset-0 pointer-events-none" style={{ willChange: 'transform' }}>
+            <svg className="w-full h-full" style={{ willChange: 'transform' }}>
                 {/* Main target circle */}
                 <circle
                     cx={targetX}
@@ -130,7 +130,8 @@ export default function IrisTarget({
                 style={{
                     left: `${targetX}px`,
                     top: `${targetY}px`,
-                    transform: 'translate(-50%, -50%)'
+                    transform: 'translate(-50%, -50%)',
+                    willChange: 'transform'
                 }}
             >
                 <AnimatePresence mode="wait">
@@ -142,6 +143,7 @@ export default function IrisTarget({
                             exit={{ scale: 0.5, opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                             className="block text-4xl font-light text-white"
+                            style={{ willChange: 'transform, opacity' }}
                         >
                             {countdown}
                         </motion.span>

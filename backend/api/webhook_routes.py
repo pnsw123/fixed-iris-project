@@ -7,6 +7,7 @@ Never trust client-side payment events.
 
 import hmac
 import hashlib
+import json
 import asyncio
 import logging
 from fastapi import APIRouter, Request, HTTPException
@@ -74,9 +75,10 @@ async def lemon_squeezy_webhook(request: Request):
         logger.info(f"Webhook already processed: {event_id}")
         return {"status": "already_processed"}
     
-    # 5. Parse JSON payload
+    # 5. Parse JSON payload — use already-read body bytes so the same bytes
+    #    used for HMAC verification are also parsed (no divergence risk).
     try:
-        data = await request.json()
+        data = json.loads(body)
     except Exception as e:
         logger.error(f"Failed to parse webhook JSON: {e}")
         return JSONResponse(

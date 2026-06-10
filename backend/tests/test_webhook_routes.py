@@ -4,10 +4,17 @@ Tests for api/webhook_routes.py — verify_signature.
 Regression coverage for issue #79:
   verify_signature must return bool, never raise TypeError,
   even before the .hexdigest() fix was applied.
+
+Regression coverage for issue #119:
+  Webhook handler must parse JSON from the already-read body bytes
+  (json.loads(body)) not via request.json(), ensuring the same bytes
+  used for HMAC verification are parsed — no silent divergence.
 """
 
 import hmac
 import hashlib
+import inspect
+import json
 import pytest
 from unittest.mock import patch
 
@@ -171,4 +178,60 @@ class TestTimingSafety:
             "verify_signature must call .hexdigest() on hmac.new() — "
             "without it, compare_digest receives an HMAC object not a str, "
             "raising TypeError (regression #79)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Regression #119: webhook handler parses JSON from body bytes, not
+# request.json(), so HMAC-verified bytes == parsed bytes (no divergence).
+# ---------------------------------------------------------------------------
+
+class TestWebhookBodyParseRegression:
+    """
+    Regression for issue #119.
+
+    lemon_squeezy_webhook() must use json.loads(body) — not request.json() —
+    so that the bytes verified by HMAC are identical to the bytes parsed.
+    request.json() re-reads independently and can fail silently if the
+    content-type is absent or encoding differs from UTF-8.
+    """
+
+    def test_handler_uses_json_loads_not_request_json(self):
+        """Source must call json.loads(body), not await request.json()."""
+        import api.webhook_routes as mod
+        source = inspect.getsource(mod.lemon_squeezy_webhook)
+        assert "json.loads(body)" in source, (
+            "lemon_squeezy_webhook must parse JSON via json.loads(body) "
+            "(same bytes used for HMAC) — not request.json() (regression #119)"
+        )
+        assert "await request.json()" not in source, (
+            "lemon_squeezy_webhook must NOT use await request.json() — "
+            "it re-reads body independently and can diverge from HMAC bytes "
+            "(regression #119)"
+        )
+
+    def test_json_loads_parses_valid_body_correctly(self):
+        """json.loads on the body bytes returns correct dict."""
+        payload = b'{"meta":{"event_name":"order_created"},"data":{"id":"99","attributes":{"status":"paid"}}}'
+        result = json.loads(payload)
+        assert result["meta"]["event_name"] == "order_created"
+        assert result["data"]["id"] == "99"
+        assert result["data"]["attributes"]["status"] == "paid"
+
+    def test_json_loads_raises_on_non_utf8_body(self):
+        """
+        json.loads raises ValueError for invalid JSON / bad encoding —
+        making the error explicit rather than silent (unlike request.json()
+        which can silently swallow encoding errors in some FastAPI versions).
+        """
+        bad_body = b"\xff\xfe not valid utf-8 json"
+        with pytest.raises((json.JSONDecodeError, UnicodeDecodeError)):
+            json.loads(bad_body)
+
+    def test_import_json_present_in_module(self):
+        """Module must import stdlib json (required for json.loads)."""
+        import api.webhook_routes as mod
+        source = inspect.getsource(mod)
+        assert "import json" in source, (
+            "webhook_routes.py must import json at module level (regression #119)"
         )

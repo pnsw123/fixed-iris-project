@@ -58,7 +58,7 @@
 │  │ GPU Semaphore (asyncio)  │  │               │ HMAC-signed
 │  │ — serialises AI workload │  │               │ webhook POST
 │  │ — prevents OOM on GPU    │  │               ▼
-│  └──────────┬───────────────┘  │  POST /api/v1/webhook/lemonsqueezy
+│  └──────────┬───────────────┘  │  POST /api/webhooks/lemon-squeezy
 │             │                  │      │
 │  Iris-SAM segmentation         │      │ verified → stores purchase_token
 │  Real-ESRGAN 4x upscale        │      │
@@ -193,7 +193,8 @@ NEXT_PUBLIC_LEMONSQUEEZY_CHECKOUT_URL=https://your-store.lemonsqueezy.com/checko
 ```env
 # === REQUIRED ===
 
-# Lemon Squeezy — get from Dashboard > Webhooks
+# Lemon Squeezy — get from Dashboard > Settings > Webhooks
+# Webhook URL to enter in Lemon Squeezy dashboard: https://<your-backend-url>/api/webhooks/lemon-squeezy
 LEMONSQUEEZY_WEBHOOK_SECRET=your_webhook_signing_secret
 
 # SendGrid — get from app.sendgrid.com > API Keys

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import type { CaptureData } from '@/components/MobileCaptureScreen';
 import ReviewScreen from '@/components/ReviewScreen';
@@ -16,6 +17,7 @@ const MobileCaptureScreen = dynamic(
 type AppState = 'capture' | 'review';
 
 export default function MobileCapturePage() {
+    const router = useRouter();
     const [appState, setAppState] = useState<AppState>('capture');
     const [captureData, setCaptureData] = useState<CaptureData | null>(null);
 
@@ -30,7 +32,7 @@ export default function MobileCapturePage() {
     };
 
     const handleBack = () => {
-        window.location.href = '/';
+        router.push('/');
     };
 
     if (appState === 'capture') {

@@ -35,7 +35,7 @@ export interface ProcessIrisOptions {
 class BackendClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = 'http://localhost:8000') {
+  constructor(baseUrl: string = 'https://localhost:8000') {
     this.baseUrl = baseUrl;
   }
 

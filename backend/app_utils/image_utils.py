@@ -1,5 +1,6 @@
 """Image conversion utilities for base64 and numpy array handling."""
 
+import logging
 import numpy as np
 import cv2
 from PIL import Image
@@ -7,6 +8,8 @@ import base64
 import io
 from pathlib import Path
 from typing import Union
+
+logger = logging.getLogger(__name__)
 
 # Bundled font — works on all platforms (macOS, Linux, Windows)
 _FONTS_DIR = Path(__file__).parent / "fonts"
@@ -203,6 +206,6 @@ def create_preview(img_array: np.ndarray, max_size: int = 150) -> np.ndarray:
     # 6. Add Watermark to the degraded image
     watermarked = add_watermark(preview_array)
     
-    print(f"[Preview] Created degraded {new_w}x{new_h} preview (quantized+blurred)")
+    logger.debug("Created degraded %dx%d preview (quantized+blurred)", new_w, new_h)
     
     return watermarked

@@ -1,5 +1,6 @@
 """Real-ESRGAN service for iris upscaling (supports PyTorch .pth and ONNX)."""
 
+import logging
 import numpy as np
 import cv2
 from typing import Optional
@@ -8,6 +9,8 @@ import onnxruntime as ort
 import sys
 import types
 import os
+
+logger = logging.getLogger(__name__)
 
 # Shim for torchvision API changes: basicsr expects functional_tensor.rgb_to_grayscale
 try:
@@ -59,8 +62,8 @@ class RealESRGANService:
 
         half_precision = torch_device.type == "cuda"
 
-        print(f"[RealESRGAN] Initializing PyTorch model on device: {torch_device} (half={half_precision})")
-        print(f"[RealESRGAN] Loading model from {model_path}...")
+        logger.info("Initializing PyTorch model on device: %s (half=%s)", torch_device, half_precision)
+        logger.info("Loading model from %s", model_path)
 
         # Choose architecture based on checkpoint name
         model_basename = os.path.basename(model_path).lower()
@@ -96,14 +99,14 @@ class RealESRGANService:
             device=torch_device
         )
 
-        print(f"[RealESRGAN] Model loaded successfully! (scale={scale}x, mode=PyTorch)")
+        logger.info("Model loaded successfully (scale=%dx, mode=PyTorch)", scale)
 
     def _init_onnx(self, model_path: str, device: str, scale: int) -> None:
         """Initialize ONNX Real-ESRGAN (legacy support)."""
         self.mode = "onnx"
 
-        print(f"[RealESRGAN] Initializing ONNX model on device: {device}")
-        print(f"[RealESRGAN] Loading model from {model_path}...")
+        logger.info("Initializing ONNX model on device: %s", device)
+        logger.info("Loading model from %s", model_path)
 
         providers = []
         if device == "cuda":
@@ -126,7 +129,7 @@ class RealESRGANService:
         self.output_name = self.session.get_outputs()[0].name
 
         actual_provider = self.session.get_providers()[0]
-        print(f"[RealESRGAN] Model loaded successfully! (scale={scale}x, provider={actual_provider}, mode=ONNX)")
+        logger.info("Model loaded successfully (scale=%dx, provider=%s, mode=ONNX)", scale, actual_provider)
 
     def upscale(self, image: np.ndarray) -> np.ndarray:
         """
@@ -147,9 +150,7 @@ class RealESRGANService:
             return self._upscale_torch(image)
 
         except Exception as e:
-            print(f"[RealESRGAN] Error during upscaling: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error("Error during upscaling: %s", e, exc_info=True)
             # Return original image if upscaling fails
             return image
 

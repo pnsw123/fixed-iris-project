@@ -1,5 +1,6 @@
 """Iris-SAM service for iris segmentation using Segment Anything Model."""
 
+import logging
 import torch
 import numpy as np
 from PIL import Image
@@ -7,6 +8,8 @@ import cv2
 from typing import Tuple, Optional
 import sys
 import os
+
+logger = logging.getLogger(__name__)
 
 # Add iris_sam to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'iris_sam'))
@@ -33,9 +36,9 @@ class IrisSAMService:
     def __init__(self, model_path: str, sam_checkpoint: str, device: str = "mps"):
         """Initialize Iris-SAM model."""
         self.device = torch.device(device)
-        print(f"[IrisSAM] Initializing on device: {device}")
+        logger.info("Initializing on device: %s", device)
 
-        print(f"[IrisSAM] Loading Iris-SAM fine-tuned weights from {model_path}...")
+        logger.info("Loading Iris-SAM fine-tuned weights from %s", model_path)
         checkpoint = torch.load(model_path, map_location=self.device)
 
         if isinstance(checkpoint, dict) and 'model' in checkpoint:
@@ -44,7 +47,7 @@ class IrisSAMService:
             state_dict = checkpoint
 
         model_type = self._infer_model_type(state_dict)
-        print(f"[IrisSAM] Using SAM backbone '{model_type}'")
+        logger.info("Using SAM backbone '%s'", model_type)
 
         use_checkpoint = None
         if sam_checkpoint and os.path.exists(sam_checkpoint):
@@ -56,12 +59,12 @@ class IrisSAMService:
 
         missing, unexpected = sam.load_state_dict(state_dict, strict=False)
         if missing:
-            print(f"[IrisSAM] Warning: missing keys: {len(missing)}")
+            logger.warning("Missing keys in state_dict: %d", len(missing))
 
         sam.eval()
         self.model = sam
         self.predictor = SamPredictor(sam)
-        print(f"[IrisSAM] Model loaded successfully!")
+        logger.info("Model loaded successfully")
 
     def segment_iris(
         self,
@@ -88,7 +91,7 @@ class IrisSAMService:
         else:
             cx, cy = w / 2, h / 2
 
-        print(f"[IrisSAM] Segmenting iris at ({cx:.1f}, {cy:.1f}) in {w}x{h} image")
+        logger.debug("Segmenting iris at (%.1f, %.1f) in %dx%d image", cx, cy, w, h)
 
         try:
             with torch.no_grad():
@@ -135,14 +138,14 @@ class IrisSAMService:
                     size_ratio = area / image_area
                     diameter = np.sqrt(4 * area / np.pi)
                     
-                    print(f"[IrisSAM] Mask {i+1}: size={size_ratio:.1%}, diameter={diameter:.0f}px, score={score:.3f}")
+                    logger.debug("Mask %d: size=%.1f%%, diameter=%.0fpx, score=%.3f", i + 1, size_ratio * 100, diameter, score)
                     
                     # Skip if way outside absolute bounds
                     if size_ratio < self.MIN_SIZE_RATIO:
-                        print(f"[IrisSAM]   -> Skip: too small (pupil?)")
+                        logger.debug("  -> Skip: too small (pupil?)")
                         continue
                     if size_ratio > self.MAX_SIZE_RATIO:
-                        print(f"[IrisSAM]   -> Skip: too large (whole eye?)")
+                        logger.debug("  -> Skip: too large (whole eye?)")
                         continue
                     
                     # Calculate how close this is to ideal iris size
@@ -154,7 +157,7 @@ class IrisSAMService:
                         best_mask = binary
                         best_area = area
                         best_score = float(score)
-                        print(f"[IrisSAM]   -> BEST so far (closest to ideal {self.IDEAL_SIZE_TARGET:.0%})")
+                        logger.debug("  -> BEST so far (closest to ideal %.0f%%)", self.IDEAL_SIZE_TARGET * 100)
 
                 if best_mask is None:
                     raise ValueError("Could not find iris. Ensure your eye is fully visible and in focus.")
@@ -163,7 +166,7 @@ class IrisSAMService:
                 size_ratio = best_area / image_area
                 diameter = np.sqrt(4 * best_area / np.pi)
                 
-                print(f"[IrisSAM] Selected: size={size_ratio:.1%}, diameter={diameter:.0f}px")
+                logger.debug("Selected: size=%.1f%%, diameter=%.0fpx", size_ratio * 100, diameter)
 
                 # Find contour again for ellipse fitting
                 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -179,7 +182,7 @@ class IrisSAMService:
                     mask = np.zeros((h, w), dtype=np.uint8)
                     cv2.ellipse(mask, ellipse, 255, -1, cv2.LINE_AA)
                     
-                    print(f"[IrisSAM] Fitted ellipse: center=({ecx:.1f}, {ecy:.1f}), axes=({axis1/2:.1f}, {axis2/2:.1f})")
+                    logger.debug("Fitted ellipse: center=(%.1f, %.1f), axes=(%.1f, %.1f)", ecx, ecy, axis1 / 2, axis2 / 2)
                 else:
                     (ccx, ccy), radius = cv2.minEnclosingCircle(largest)
                     mask = np.zeros((h, w), dtype=np.uint8)
@@ -201,14 +204,14 @@ class IrisSAMService:
 
                 quality_score = best_score
 
-                print(f"[IrisSAM] ✅ Segmentation complete (quality: {quality_score:.2f}, output: RGBA)")
+                logger.info("Segmentation complete (quality: %.2f, output: RGBA)", quality_score)
 
                 return mask, clean_iris, quality_score
 
         except ValueError:
             raise
         except Exception as e:
-            print(f"[IrisSAM] Error: {e}")
+            logger.error("Segmentation error: %s", e)
             raise RuntimeError(f"Segmentation failed: {e}")
 
     def _infer_model_type(self, state_dict) -> str:

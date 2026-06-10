@@ -75,8 +75,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Iris Heritage Platform API",
-    description="Iris-SAM segmentation + Real-ESRGAN upscaling + Heritage Card Platform",
+    title="Eyedentity API",
+    description="AI iris segmentation and 4x upscaling — Iris-SAM + Real-ESRGAN",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",

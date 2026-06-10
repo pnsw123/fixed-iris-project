@@ -601,14 +601,7 @@ User opens /capture
         → /result page
 ```
 
-> **To add a screen recording:** Run locally, record with QuickTime, then convert:
-> ```bash
-> ffmpeg -i recording.mov -vf "fps=10,scale=360:-1" docs/capture-stages/capture-flow.gif
-> ```
-> Place the GIF at `docs/capture-stages/capture-flow.gif` and reference it here:
-> ```markdown
-> ![Capture Flow](docs/capture-stages/capture-flow.gif)
-> ```
+![Capture Flow](docs/capture-stages/capture-flow.gif)
 
 ---
 

@@ -5,6 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import Image from 'next/image';
 import { ChevronsLeftRight } from 'lucide-react';
 import { useDebugMode } from '@/hooks/useDebugMode';
+import { useInView } from 'motion/react';
 
 interface ComparisonSliderProps {
     compact?: boolean;
@@ -20,6 +21,9 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
     const animationStartRef = useRef<number | null>(null);
     const [percent, setPercent] = useState(0);
     const [containerWidth, setContainerWidth] = useState<number>(0);
+
+    // Only start auto-animation once slider is visible in viewport
+    const isInView = useInView(sliderRef, { once: true, margin: '-80px' });
 
     const updateFromClientX = (clientX: number) => {
         const slider = sliderRef.current;
@@ -51,9 +55,11 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
         };
     }, []);
 
-    // Auto-animation: wait 800ms, then animate from 0% → 80% over ~2s with easing
+    // Auto-animation: fires only once slider enters viewport, then waits 400ms before starting
     useEffect(() => {
-        const initialDelay = 800; // Wait for user to see the page
+        if (!isInView) return;
+
+        const initialDelay = 400; // Short delay after viewport entry
         const duration = 2000; // Slower, smoother animation
         const targetPercent = 80; // Stop at 80% instead of 100%
 
@@ -95,7 +101,7 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
                 cancelAnimationFrame(animationFrameRef.current);
             }
         };
-    }, []);
+    }, [isInView]);
 
     // Track container width for proper image alignment
     useEffect(() => {

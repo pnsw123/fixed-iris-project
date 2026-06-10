@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
+import { motion } from 'motion/react';
 import AppHeader from '@/components/AppHeader';
 import ComparisonSlider from '@/components/ComparisonSlider';
 import UnsupportedDeviceScreen from '@/components/UnsupportedDeviceScreen';
@@ -134,30 +135,49 @@ export default function InstructionsPage() {
                 <div className="space-y-8">
 
                     {/* Instructions First - "How to Capture" */}
-                    <div className="space-y-6">
+                    <motion.div
+                        className="space-y-6"
+                        initial={{ opacity: 0, y: 24 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: '-60px' }}
+                        transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
+                    >
                         <h2 className="text-3xl sm:text-4xl font-light text-white tracking-tight">How to Capture</h2>
                         <ChalkboardList items={instructionItems} arrowColor="#a78bfa" />
-                    </div>
+                    </motion.div>
 
                     {/* Result Preview Second */}
-                    <div ref={lightSectionRef} className="space-y-3">
+                    <motion.div
+                        ref={lightSectionRef}
+                        className="space-y-3"
+                        initial={{ opacity: 0, y: 32 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: '-80px' }}
+                        transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+                    >
                         <h2 className="text-3xl sm:text-4xl font-light text-white tracking-tight">Light Reveals Everything</h2>
                         <p className="text-sm text-gray-400">Point a light directly at your face—yes, really close. Trust us.</p>
                         <ComparisonSlider compact />
                         <p className="text-xs text-gray-500 font-mono text-center">
                             Iris before and after enough light
                         </p>
-                    </div>
+                    </motion.div>
 
                     {/* CTA */}
-                    <div className="pt-2">
+                    <motion.div
+                        className="pt-2"
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: '-60px' }}
+                        transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.1 }}
+                    >
                         <button
                             onClick={handleContinue}
                             className="w-full bg-white text-black font-medium text-base py-4 px-6 hover:bg-gray-100 transition-colors"
                         >
                             Continue
                         </button>
-                    </div>
+                    </motion.div>
                 </div>
             </div>
 

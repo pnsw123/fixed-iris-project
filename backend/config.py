@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     workers: int = 1
-    reload: bool = True
+    reload: bool = False
 
     # Models
     iris_sam_model: str = "./models/IrisSAM_model.pt"

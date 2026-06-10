@@ -450,6 +450,56 @@ Before deploying to any public environment, verify every item below. Several def
 
 ---
 
+## 🎬 Capture Flow Demo
+
+> **What makes Eyedentity different** — a 4-stage guided capture system that ensures every iris image is sharp, centred, and authenticated before the shutter fires.
+
+<!-- Once a screen recording exists, replace the image below with the real GIF: -->
+<!-- ![Guided capture flow](docs/capture-demo.gif) -->
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    4-Stage Guided Capture UX                        │
+├──────────────┬───────────────┬──────────────────┬───────────────────┤
+│  STAGE 1     │   STAGE 2     │    STAGE 3       │    STAGE 4        │
+│  Distance    │   Liveness    │  Final Checks    │   Countdown       │
+├──────────────┼───────────────┼──────────────────┼───────────────────┤
+│              │               │                  │                   │
+│  "Move       │  "Raise Your  │  Center ✓        │     3...          │
+│   Closer"    │   Eyebrows"   │  Focus  ✓        │     2...          │
+│              │               │  Light  ✓        │     1...          │
+│  ◯ ← 👁️    │   🤨 ← 👁️   │    ◯ ← 👁️    │   📸 Capture!    │
+│              │               │                  │                   │
+│  800 ms hold │  30 frames    │  All 3 · 800 ms  │  Aborts if any   │
+│  8–12% frame │  (~2 s @15fps)│  pass together   │  quality drops    │
+├──────────────┴───────────────┴──────────────────┴───────────────────┤
+│  ████░░░░░░  25%   ████████░░  75%         ██████████  100% 📸      │
+│  Anti-spoofing: printed photo cannot raise eyebrows → liveness free │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**To record and add the actual demo GIF** (add to `docs/capture-demo.gif`):
+
+```bash
+# Option A — macOS: QuickTime screen recording → gifski
+# 1. Open app at https://localhost:3000/capture
+# 2. Record ~6 s: QuickTime Player → New Screen Recording (select capture page only)
+# 3. Export as .mov, then convert:
+gifski --fps 12 --width 480 -o docs/capture-demo.gif screen-recording.mov
+
+# Option B — ffmpeg direct screen capture (Linux / CI)
+ffmpeg -f x11grab -r 15 -s 480x850 -i :0.0 \
+  -vf "fps=12,scale=480:-1:flags=lanczos" -loop 0 docs/capture-demo.gif
+
+# Option C — Android device via scrcpy
+scrcpy --record=screen.mp4 --max-fps=15
+ffmpeg -i screen.mp4 -vf "fps=12,scale=480:-1:flags=lanczos" -loop 0 docs/capture-demo.gif
+```
+
+> **Tip:** Keep the GIF under 5 MB for fast GitHub rendering. Target 480 px wide, 12 fps, 5–7 s loop covering all four stages. Then uncomment the `![Guided capture flow]` line above.
+
+---
+
 ## 🎯 Guided Capture Flow (4-Stage UX)
 
 The core differentiator is a MediaPipe-driven **4-stage quality gate** that runs in-browser at ~10 fps. Each stage must pass before the shutter fires. Below is a stage-by-stage breakdown of what the user sees and what the system checks.

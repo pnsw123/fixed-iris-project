@@ -10,8 +10,8 @@ export default defineConfig({
         coverage: {
             provider: 'v8',
             reporter: ['text', 'lcov'],
-            include: ['src/lib/**', 'src/hooks/**'],
-            exclude: ['src/tests/**', 'src/app/**', 'src/components/**'],
+            include: ['src/lib/**', 'src/hooks/**', 'src/components/**'],
+            exclude: ['src/tests/**', 'src/app/**'],
             thresholds: {
                 lines: 80,
                 functions: 80,

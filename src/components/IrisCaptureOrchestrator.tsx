@@ -72,7 +72,6 @@ export default function IrisCaptureOrchestrator({
                 
                 // Check if we should abort
                 if (countdownAbortRef.current) {
-                    console.log('[Capture] Countdown aborted - quality dropped');
                     setIsCapturing(false);
                     setCountdown(null);
                     stableStartTimeRef.current = null;
@@ -91,7 +90,6 @@ export default function IrisCaptureOrchestrator({
                         
                         if (!meetsQualityThresholds(checkReport)) {
                             // Quality dropped during countdown - abort immediately
-                            console.log('[Capture] Quality dropped during countdown, aborting');
                             setIsCapturing(false);
                             setCountdown(null);
                             stableStartTimeRef.current = null;
@@ -130,7 +128,6 @@ export default function IrisCaptureOrchestrator({
         if (analysisCanvasRef.current) {
             const finalReport = await qualityAnalyzer.analyze(video, analysisCanvasRef.current);
             if (!meetsQualityThresholds(finalReport)) {
-                console.log('[Capture] Final quality check failed, aborting');
                 setIsCapturing(false);
                 setCountdown(null);
                 shouldCaptureRef.current = false;

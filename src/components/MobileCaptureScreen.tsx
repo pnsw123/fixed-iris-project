@@ -84,7 +84,6 @@ export default function MobileCaptureScreen({
     const lastAnalysisTime = useRef<number>(0);
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const stableGoodFramesRef = useRef<number>(0);
-    const lastBlockedCountdownLogRef = useRef<number>(0);
     const focusLockAccumRef = useRef<number>(0);
     const lastFocusTimestampRef = useRef<number>(0);
 
@@ -176,7 +175,6 @@ export default function MobileCaptureScreen({
                         videoRef.current?.play().then(resolve).catch(resolve);
                     };
                 });
-                console.log(`[Capture] Camera started: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
             }
         } catch (err) {
             if (err instanceof DOMException) {
@@ -343,14 +341,6 @@ export default function MobileCaptureScreen({
                 // CRITICAL FIX: Immediately abort countdown if conditions are no longer good
                 // This ensures closing eyes or moving away stops the countdown instantly
                 if (countdownIntervalRef.current) {
-                    console.log('[Capture] ❌ Aborting countdown - conditions no longer stable', {
-                        irisDetected: report.irisDetected,
-                        hasCropBox: !!report.irisCropBox,
-                        focus: report.focus.status,
-                        focusLocked: locked,
-                        distance: report.distance.status,
-                        lighting: report.lighting.status
-                    });
                     clearInterval(countdownIntervalRef.current);
                     countdownIntervalRef.current = null;
                     setCountdown(null);
@@ -367,18 +357,11 @@ export default function MobileCaptureScreen({
                 !isCapturing &&
                 !countdownIntervalRef.current
             ) {
-                console.log('[Capture] ✅ Starting countdown - stable & close', {
-                    distance: report.distance,
-                    focus: { status: report.focus.status, score: report.focus.score },
-                    irisDiameter: report.irisDiameter.toFixed(2),
-                    cropBox: report.irisCropBox
-                });
                 setCountdown(3);
                 let count = 3;
                 countdownIntervalRef.current = setInterval(() => {
                     count--;
                     setCountdown(count);
-                    console.log(`[Capture] Countdown: ${count}`);
                     if (count <= 0) {
                         if (countdownIntervalRef.current) {
                             clearInterval(countdownIntervalRef.current);
@@ -387,19 +370,6 @@ export default function MobileCaptureScreen({
                         setCountdown(-1); // Special value to trigger capture
                     }
                 }, 1000);
-            } else if (!isGoodForCountdown && countdown === null && report.irisDetected) {
-                const now = performance.now();
-                if (now - lastBlockedCountdownLogRef.current > 1000) {
-                    console.log('[Capture] Not starting countdown (needs focus/closer/centered/light)', {
-                        focus: report.focus,
-                        focusLocked: locked,
-                        distance: report.distance,
-                        centering: report.centering,
-                        lighting: report.lighting,
-                        irisDiameter: report.irisDiameter.toFixed(2)
-                    });
-                    lastBlockedCountdownLogRef.current = now;
-                }
             }
 
         } catch (err) {
@@ -408,7 +378,6 @@ export default function MobileCaptureScreen({
     }, [isDebug, countdown, computeGuidance, isCapturing, isFocusLocked]);
 
     const startAnalysisLoop = useCallback(() => {
-        console.log('[Capture] Starting analysis loop...');
 
         // Mutable ref allows loop and loopRef.schedule to mutually reference each other
         const loopRef = { schedule: () => {} };
@@ -442,13 +411,7 @@ export default function MobileCaptureScreen({
 
     // --- Capture ---
     const performCapture = useCallback(async () => {
-        console.log('[Capture] performCapture called');
-        console.log('[Capture] isCapturing:', isCapturing);
-        console.log('[Capture] currentReport:', currentReport);
-
         if (!videoRef.current || !canvasRef.current || !currentReport) {
-            console.warn('[Capture] Cannot capture - missing dependencies');
-            console.warn('[Capture] video:', !!videoRef.current, 'canvas:', !!canvasRef.current, 'report:', !!currentReport);
             setIsCapturing(false);
             return;
         }
@@ -463,7 +426,6 @@ export default function MobileCaptureScreen({
         const BURST_FRAMES = 6;
         const BURST_INTERVAL_MS = 40;
 
-        console.log('[Capture] 🎯 Executing capture (burst mode)...');
 
         const video = videoRef.current;
         const canvas = canvasRef.current;
@@ -472,7 +434,6 @@ export default function MobileCaptureScreen({
 
         const analysisCanvas = analysisCanvasRef.current;
         if (!analysisCanvas) {
-            console.error('[Capture] Analysis canvas is null!');
             setIsCapturing(false);
             return;
         }
@@ -524,21 +485,12 @@ export default function MobileCaptureScreen({
             in_crop_y > cropSize * 0.05 &&
             in_crop_y < cropSize * 0.95;
 
-        console.log('[Capture] Scale factors:', { scaleX, scaleY, avgScale: (scaleX + scaleY) / 2 });
-        console.log('[Capture] Iris diameter transformation:');
-        console.log(`  Analysis canvas (640x480): ${irisDiameter_ac.toFixed(2)}px`);
-        console.log(`  Video (${video.videoWidth}x${video.videoHeight}): ${irisDiameter_video.toFixed(2)}px`);
-        console.log(`  Crop (${cropSize}x${cropSize}): ${irisDiameter_crop.toFixed(2)}px`);
-        console.log(`  Radius for backend: ${irisRadius_crop.toFixed(2)}px`);
-        console.log('[Capture] Crop dimensions:', { cropX, cropY, cropSize });
-        console.log('[Capture] Iris in crop:', { in_crop_x, in_crop_y, diameter: irisDiameter_crop, radius: irisRadius_crop, isValid });
 
         canvas.width = cropSize;
         canvas.height = cropSize;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-            console.error('[Capture] Cannot get canvas context!');
             setIsCapturing(false);
             return;
         }
@@ -617,7 +569,6 @@ export default function MobileCaptureScreen({
             return;
         }
 
-        console.log('[Capture] Selected sharpest frame', { sharpness: bestFrame.sharpness });
 
         // Prepare capture data with coordinates and iris radius
         const captureData: CaptureData = {
@@ -627,33 +578,19 @@ export default function MobileCaptureScreen({
             irisRadius: isValid ? irisRadius_crop : null
         };
 
-        console.log('[Capture] Capture data:', {
-            hasCoordinates: !!captureData.irisCoordinates,
-            coordinates: captureData.irisCoordinates,
-            cropSize: captureData.cropSize,
-            irisRadius: captureData.irisRadius
-        });
 
         telemetry.logSummary();
 
         // Stop analysis loop and camera
-        console.log('[Capture] Stopping analysis loop...');
         stopAnalysisLoop();
-
-        console.log('[Capture] Stopping camera...');
         stopCamera();
-
-        console.log('[Capture] Calling onCaptureComplete...');
         onCaptureComplete(captureData);
-
-        console.log('[Capture] Capture complete!');
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentReport, stopCamera, stopAnalysisLoop, onCaptureComplete]);
 
     // Trigger capture when countdown reaches -1
     useEffect(() => {
         if (countdown === -1) {
-            console.log('[Capture] Countdown finished! Triggering capture...');
             setCountdown(null);
             setIsCapturing(true); // Set flag before capture
             void performCapture();
@@ -666,13 +603,10 @@ export default function MobileCaptureScreen({
 
         const init = async () => {
             try {
-                console.log('[Capture] Starting initialization...');
                 await startCamera();
                 if (!mounted) return;
 
-                console.log('[Capture] Loading Detection Engine...');
                 await qualityAnalyzer.initialize();
-                console.log('[Capture] Engine Ready');
 
                 setIsInitializing(false);
                 startAnalysisLoop();

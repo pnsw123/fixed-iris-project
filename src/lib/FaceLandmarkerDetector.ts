@@ -84,12 +84,10 @@ export class FaceLandmarkerDetector {
         this.isInitializing = true;
 
         try {
-            console.log('[IrisDetector] Loading Vision Tasks...');
             const vision = await FilesetResolver.forVisionTasks(
                 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
             );
 
-            console.log('[IrisDetector] Loading Face + Iris Landmarker model...');
             // Use Face Landmarker with iris tracking enabled
             this.faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
                 baseOptions: {
@@ -105,7 +103,6 @@ export class FaceLandmarkerDetector {
                 outputFaceBlendshapes: false,
                 outputFacialTransformationMatrixes: false,
             });
-            console.log('[IrisDetector] Ready - Iris tracking enabled');
         } catch (err) {
             console.error('[IrisDetector] Init failed:', err);
             throw err;
@@ -247,7 +244,6 @@ export class FaceLandmarkerDetector {
                 return null;
             }
 
-            console.log(`[IrisDetector] ✅ ${eye} iris detected - center: (${centerX.toFixed(1)}, ${centerY.toFixed(1)}), diameter: ${diameter.toFixed(1)}px`);
 
             return {
                 center: { x: centerX, y: centerY },

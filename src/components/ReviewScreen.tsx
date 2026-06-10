@@ -151,8 +151,6 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
         setIsEnhancing(true);
 
         try {
-            console.log('[ReviewScreen] Sending to backend for Iris-SAM + ESRGAN processing...');
-
             const result = await backendClient.processIris(irisCrop, {
                 return_mask: false,
                 return_intermediate: false,
@@ -165,7 +163,6 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
             if (result.success && result.preview_image && result.purchase_token) {
                 setPreviewImage(result.preview_image);
                 setPurchaseToken(result.purchase_token);
-                console.log('[ReviewScreen] ✅ Backend processing complete!');
                 toast.success('Enhancement complete — HD preview ready!');
             } else {
                 throw new Error(result.error || 'Enhancement failed');

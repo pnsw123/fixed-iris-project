@@ -112,7 +112,6 @@ export class QualityAnalyzer {
 
     async initialize() {
         if (this.isInitialized) return;
-        console.log('[QualityAnalyzer] Initializing...');
         await faceLandmarkerDetector.initialize();
         this.isInitialized = true;
     }

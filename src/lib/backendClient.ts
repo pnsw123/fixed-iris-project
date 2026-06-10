@@ -149,11 +149,6 @@ class BackendClient {
 
       const data = await response.json();
       const isHealthy = data.status === 'ok' && data.models_loaded;
-
-      if (isHealthy) {
-        console.log('[BackendClient] ✅ Backend healthy, device:', data.device);
-      }
-
       return isHealthy;
     } catch (error) {
       console.error('[BackendClient] Health check failed:', error);
@@ -195,15 +190,8 @@ class BackendClient {
         formData.append('crop_size', (options.cropSize || 0).toString());
         if (options.irisRadius) {
           formData.append('iris_radius', options.irisRadius.toString());
-          console.log('[BackendClient] Sending iris coordinates + radius:', options.irisCoordinates, 'radius:', options.irisRadius);
-        } else {
-          console.log('[BackendClient] Sending iris coordinates:', options.irisCoordinates);
         }
-      } else {
-        console.log('[BackendClient] No coordinates - using center fallback');
       }
-
-      console.log('[BackendClient] Sending iris image to backend for processing...');
 
       // Send request
       const response = await fetch(`${this.baseUrl}/api/v1/process-iris`, {
@@ -230,12 +218,6 @@ class BackendClient {
       if (!result.success) {
         throw new Error(result.error || 'Processing returned success=false');
       }
-
-      console.log('[BackendClient] ✅ Processing complete!', {
-        irisSamMs: result.metadata?.iris_sam_time_ms,
-        esrganMs: result.metadata?.esrgan_time_ms,
-        qualityScore: result.metadata?.mask_quality_score,
-      });
 
       return result;
 

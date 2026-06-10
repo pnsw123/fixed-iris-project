@@ -29,7 +29,6 @@ let orientationHandler: ((event: DeviceOrientationEvent) => void) | null = null;
  */
 export async function initializePhoneAngle(): Promise<boolean> {
     if (isListening) {
-        console.log('[PhoneAngle] Already initialized');
         return true;
     }
 
@@ -48,14 +47,11 @@ export async function initializePhoneAngle(): Promise<boolean> {
     const DOE = DeviceOrientationEvent as IOSDeviceOrientationEvent;
     if (typeof DOE.requestPermission === 'function') {
         try {
-            console.log('[PhoneAngle] Requesting permission (iOS)...');
             const permission = await DOE.requestPermission();
             if (permission !== 'granted') {
-                console.warn('[PhoneAngle] Permission denied');
                 currentState = 'unavailable';
                 return false;
             }
-            console.log('[PhoneAngle] Permission granted');
         } catch (error) {
             console.error('[PhoneAngle] Permission request failed:', error);
             currentState = 'unavailable';
@@ -75,7 +71,6 @@ export async function initializePhoneAngle(): Promise<boolean> {
 
     window.addEventListener('deviceorientation', orientationHandler);
     isListening = true;
-    console.log('[PhoneAngle] Listening to device orientation');
 
     return true;
 }
@@ -143,11 +138,6 @@ export function getAngleState(): AngleResult {
             break;
     }
 
-    // Debug log occasionally
-    if (Math.random() < 0.05) {
-        console.log('[PhoneAngle] Beta:', beta.toFixed(1), '° | State:', newState);
-    }
-
     return {
         state: newState,
         beta,
@@ -166,7 +156,6 @@ export function stopPhoneAngle() {
     isListening = false;
     latestBeta = null;
     currentState = 'unavailable';
-    console.log('[PhoneAngle] Stopped listening');
 }
 
 /**
@@ -175,5 +164,4 @@ export function stopPhoneAngle() {
 export function resetPhoneAngle() {
     currentState = 'unavailable';
     latestBeta = null;
-    console.log('[PhoneAngle] State reset');
 }

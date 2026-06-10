@@ -56,7 +56,6 @@ export class AudioFeedback {
         if (text === this.lastMessage && now - this.lastSpeakTime < 3000) return;
         if (now - this.lastSpeakTime < 1500) return;
 
-        console.log(`[Audio] Speaking: "${text}"`);
 
         // Cancel pending speech to be responsive
         window.speechSynthesis.cancel();

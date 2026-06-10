@@ -64,7 +64,6 @@ class Telemetry {
      */
     trackCountdownAbort(reason: keyof TelemetryData['countdownAborts']) {
         this.data.countdownAborts[reason]++;
-        console.log(`[Telemetry] Countdown aborted: ${reason}`);
     }
 
     /**
@@ -99,10 +98,10 @@ class Telemetry {
                 ? this.data.performance.inferenceTimeSum / this.data.performance.inferenceTimeCount
                 : 0;
 
-        console.log('[Telemetry] === Summary ===');
-        console.log('[Telemetry] Condition Failures:', this.data.conditionFailures);
-        console.log('[Telemetry] Countdown Aborts:', this.data.countdownAborts);
-        console.log(
+        console.warn('[Telemetry] === Summary ===');
+        console.warn('[Telemetry] Condition Failures:', this.data.conditionFailures);
+        console.warn('[Telemetry] Countdown Aborts:', this.data.countdownAborts);
+        console.warn(
             `[Telemetry] Inference Time: avg=${avgInferenceTime.toFixed(1)}ms, max=${this.data.performance.inferenceTimeMax.toFixed(1)}ms`
         );
     }

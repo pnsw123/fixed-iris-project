@@ -47,11 +47,6 @@ export async function checkCameraResolution(): Promise<CameraCapabilities> {
         const megapixels = totalPixels / 1_000_000;
         const meetsRequirement = totalPixels >= MIN_PIXELS;
 
-        console.log(`[CameraCheck] Device: ${deviceLabel}`);
-        console.log(`[CameraCheck] Max Resolution: ${maxWidth}x${maxHeight}`);
-        console.log(`[CameraCheck] Megapixels: ${megapixels.toFixed(1)}MP`);
-        console.log(`[CameraCheck] Meets ${MIN_MEGAPIXELS}MP requirement: ${meetsRequirement}`);
-
         return {
             maxWidth,
             maxHeight,

@@ -11,8 +11,6 @@ export default function MobileCapturePage() {
     const [captureData, setCaptureData] = useState<CaptureData | null>(null);
 
     const handleCaptureComplete = (data: CaptureData) => {
-        console.log('[MobileCapturePage] ✅ Capture complete!');
-        console.log('[MobileCapturePage] Image data length:', data.imageData.length);
         setCaptureData(data);
         setAppState('review');
     };

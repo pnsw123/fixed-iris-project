@@ -1,4 +1,9 @@
-"""Tests for services/purchase_service.py — token lifecycle."""
+"""Tests for services/purchase_service.py — token lifecycle.
+
+Tests run against the in-memory backend (PURCHASE_BACKEND=memory) so they
+require no external Redis. The PurchaseService public API is identical
+regardless of backend — these tests validate the contract, not the backend.
+"""
 
 import time
 import pytest
@@ -11,8 +16,12 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'backend'))
 
+# Force memory backend for unit tests — no Redis required
+os.environ.setdefault("PURCHASE_BACKEND", "memory")
+
 from services.purchase_service import (
     PurchaseService,
+    MemoryPurchaseStore,
     PurchaseStatus,
     PendingPurchase,
 )
@@ -24,8 +33,11 @@ from services.purchase_service import (
 
 @pytest.fixture()
 def service() -> PurchaseService:
-    """Fresh PurchaseService instance per test."""
-    return PurchaseService()
+    """Fresh PurchaseService instance per test (always memory backend)."""
+    # Ensure memory backend regardless of env var in the outer process
+    svc = PurchaseService.__new__(PurchaseService)
+    svc._store = MemoryPurchaseStore()
+    return svc
 
 
 SAMPLE_HD = b'hd_image_data'

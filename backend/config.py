@@ -49,9 +49,12 @@ class Settings(BaseSettings):
     # Server — public base URL (used in download links)
     base_url: str = "https://localhost:3000"
 
-    # Redis — optional; required for production-grade purchase storage
-    # If unset, PurchaseService falls back to in-memory storage (dev only).
+    # Redis — required when PURCHASE_BACKEND=redis
+    # If unset, PurchaseService uses in-memory storage (dev only).
     redis_url: str = ""
+
+    # Purchase storage backend: "memory" (default, dev) or "redis" (production)
+    purchase_backend: str = "memory"
 
     class Config:
         env_file = ".env"

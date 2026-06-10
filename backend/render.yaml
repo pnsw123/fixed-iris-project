@@ -8,3 +8,16 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
+      - key: PURCHASE_BACKEND
+        value: redis
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: eyedentity-redis
+          property: connectionString
+
+databases:
+  - type: redis
+    name: eyedentity-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru

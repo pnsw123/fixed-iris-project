@@ -12,7 +12,7 @@ Coverage:
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock, call
+from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta, timezone
 
 import sys
@@ -132,8 +132,7 @@ class TestDownloadHd:
     def test_200_png_for_immediately_paid_purchase(self, client):
         """When purchase is PAID on first poll, return PNG immediately."""
         purchase = _paid_purchase("tok-immediate")
-        with patch("api.download_routes.purchase_service") as mock_svc, \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch("api.download_routes.purchase_service") as mock_svc:
             mock_svc.get_purchase.return_value = purchase
             resp = client.post("/api/download-hd", json={"token": "tok-immediate"})
         assert resp.status_code == 200
@@ -142,8 +141,7 @@ class TestDownloadHd:
 
     def test_200_response_has_correct_content_disposition(self, client):
         purchase = _paid_purchase("tok-cd")
-        with patch("api.download_routes.purchase_service") as mock_svc, \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch("api.download_routes.purchase_service") as mock_svc:
             mock_svc.get_purchase.return_value = purchase
             resp = client.post("/api/download-hd", json={"token": "tok-cd"})
         assert "attachment" in resp.headers.get("content-disposition", "")
@@ -151,30 +149,16 @@ class TestDownloadHd:
 
     def test_200_response_has_no_store_cache_control(self, client):
         purchase = _paid_purchase("tok-cache")
-        with patch("api.download_routes.purchase_service") as mock_svc, \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch("api.download_routes.purchase_service") as mock_svc:
             mock_svc.get_purchase.return_value = purchase
             resp = client.post("/api/download-hd", json={"token": "tok-cache"})
         assert "no-store" in resp.headers.get("cache-control", "")
 
     def test_202_when_purchase_remains_pending_throughout_poll(self, client):
-        """When payment never arrives during the poll window, return 202."""
+        """When payment is pending, endpoint returns 202 immediately (non-blocking)."""
         purchase = _pending_purchase("tok-timeout")
 
-        # asyncio.sleep is called once per poll iteration.
-        # We make it advance elapsed past MAX_WAIT_SECONDS immediately
-        # by making sleep a no-op but ensuring the while loop exits.
-        # Since MAX_WAIT_SECONDS=30 and POLL_INTERVAL=0.5, we need 60 iterations.
-        # Instead, we patch asyncio.sleep to raise after enough calls to exit.
-        sleep_call_count = {"n": 0}
-
-        async def _fast_sleep(interval):
-            sleep_call_count["n"] += 1
-            # After 60 sleeps (== 30s / 0.5s), the loop would have elapsed=30
-            # and exited. We let all calls pass through instantly.
-
-        with patch("api.download_routes.purchase_service") as mock_svc, \
-             patch("api.download_routes.asyncio.sleep", side_effect=_fast_sleep):
+        with patch("api.download_routes.purchase_service") as mock_svc:
             mock_svc.get_purchase.return_value = purchase
             resp = client.post("/api/download-hd", json={"token": "tok-timeout"})
 
@@ -194,8 +178,7 @@ class TestDownloadHd:
                 return pending   # first call — token exists
             return None          # subsequent calls — token gone
 
-        with patch("api.download_routes.purchase_service") as mock_svc, \
-             patch("api.download_routes.asyncio.sleep", new_callable=AsyncMock):
+        with patch("api.download_routes.purchase_service") as mock_svc:
             mock_svc.get_purchase.side_effect = _side_effect
             resp = client.post("/api/download-hd", json={"token": "tok-disappear"})
 
@@ -216,8 +199,7 @@ class TestDownloadHd:
             status=PurchaseStatus.PAID,
             paid_at=datetime.now().timestamp(),
         )
-        with patch("api.download_routes.purchase_service") as mock_svc, \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch("api.download_routes.purchase_service") as mock_svc:
             mock_svc.get_purchase.return_value = purchase
             resp = client.post("/api/download-hd", json={"token": "tok-custom"})
         assert resp.content == custom_hd

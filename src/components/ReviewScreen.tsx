@@ -742,9 +742,22 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
             </motion.div>{/* end page entry wrapper */}
 
             {/* Email Collection Modal */}
+            <AnimatePresence>
             {showEmailModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full">
+                <motion.div
+                    className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                >
+                    <motion.div
+                        className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full"
+                        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    >
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-xl font-semibold text-white">Almost there!</h3>
                             <button
@@ -794,9 +807,10 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                                 Your HD image will be available immediately after payment.
                             </p>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 }

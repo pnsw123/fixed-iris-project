@@ -295,16 +295,22 @@ class UpdatePurchaseEmailRequest(BaseModel):
 
 
 @router.post("/api/update-purchase-email")
-async def update_purchase_email(request: UpdatePurchaseEmailRequest):
+@limiter.limit("5/minute")
+async def update_purchase_email(request: Request, body: UpdatePurchaseEmailRequest):
     """
     Update the email for a pending purchase.
     Called when user enters email before checkout.
 
     Accepts JSON body (token + email) — never query params, to prevent
     sensitive data appearing in server logs, browser history, and CDN/proxy logs.
+
+    Rate-limited to 5 requests/minute per IP to prevent:
+    - Token brute-force (UUID enumeration at high rate)
+    - Email enumeration via 404 vs 200 response distinction
+    - Hostile email registration against valid tokens
     """
-    success = purchase_service.update_email(request.token, request.email)
-    
+    success = purchase_service.update_email(body.token, body.email)
+
     if not success:
         return JSONResponse(
             {"error": "Purchase not found"},

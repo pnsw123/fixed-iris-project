@@ -368,6 +368,15 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
     return (
         <div className="min-h-screen bg-black flex flex-col relative overflow-hidden">
             <SpotlightBackground />
+
+            {/* Page entry: whole screen slides up + fades in */}
+            <motion.div
+                className="flex flex-col flex-1"
+                initial={{ opacity: 0, y: 28 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            >
+
             {/* Header with Backend Status */}
             <AppHeader
                 title="IRIS CAPTURE REVIEW"
@@ -393,19 +402,35 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
             {/* Main Content */}
             <div className="flex-1 flex flex-col items-center justify-center px-8 py-16 sm:px-16 relative z-10">
                 <div className="max-w-4xl w-full space-y-8">
-                    {/* Image Preview */}
-                    <div className="flex flex-col items-center">
+                    {/* Image Preview — staggered entrance */}
+                    <motion.div
+                        className="flex flex-col items-center"
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.12, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    >
                         <div className="bg-gray-900 border border-gray-800 p-8 flex items-center justify-center relative min-h-[400px] w-full overflow-hidden">
                             <AnimatePresence mode="wait">
                                 {previewImage ? (
-                                    /* Enhanced preview — dramatic reveal */
+                                    /* Enhanced preview — iris unveil: circular mask expand + glitch + bloom + shimmer */
                                     <motion.div
                                         key="enhanced"
                                         className="relative"
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
+                                        initial={{
+                                            opacity: 0,
+                                            scale: 0.88,
+                                            clipPath: 'circle(0% at 50% 50%)',
+                                        }}
+                                        animate={{
+                                            opacity: 1,
+                                            scale: 1,
+                                            clipPath: 'circle(75% at 50% 50%)',
+                                        }}
                                         exit={{ opacity: 0, scale: 0.95 }}
-                                        transition={{ duration: 0.7, ease: 'easeOut' }}
+                                        transition={{
+                                            duration: 0.85,
+                                            ease: [0.22, 1, 0.36, 1],
+                                        }}
                                     >
                                         <motion.img
                                             src={previewImage}
@@ -413,17 +438,68 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                                             className="max-w-full h-auto"
                                             style={{ imageRendering: 'crisp-edges' }}
                                         />
-                                        {/* Shimmer sweep — fires once on reveal */}
+
+                                        {/* Glitch flicker overlay — rapid opacity pulses on reveal */}
                                         <motion.div
-                                            className="pointer-events-none absolute inset-0"
-                                            initial={{ x: '-100%', opacity: 0.6 }}
-                                            animate={{ x: '200%', opacity: 0 }}
-                                            transition={{ duration: 1.1, ease: 'easeInOut', delay: 0.2 }}
-                                            style={{
-                                                background:
-                                                    'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%)',
+                                            className="pointer-events-none absolute inset-0 bg-emerald-400/20 mix-blend-screen"
+                                            initial={{ opacity: 0 }}
+                                            animate={{
+                                                opacity: [0, 0.55, 0, 0.35, 0, 0.18, 0],
+                                            }}
+                                            transition={{
+                                                duration: 0.38,
+                                                delay: 0.08,
+                                                ease: 'linear',
                                             }}
                                         />
+
+                                        {/* Radial bloom ring — expands outward from iris center */}
+                                        <motion.div
+                                            className="pointer-events-none absolute inset-0"
+                                            initial={{ opacity: 0.75, scale: 0.25 }}
+                                            animate={{ opacity: 0, scale: 1.7 }}
+                                            transition={{
+                                                duration: 0.8,
+                                                delay: 0.04,
+                                                ease: 'easeOut',
+                                            }}
+                                            style={{
+                                                background:
+                                                    'radial-gradient(circle, rgba(52,211,153,0.4) 0%, transparent 65%)',
+                                            }}
+                                        />
+
+                                        {/* Shimmer sweep — fires after mask settle */}
+                                        <motion.div
+                                            className="pointer-events-none absolute inset-0"
+                                            initial={{ x: '-100%', opacity: 0.7 }}
+                                            animate={{ x: '200%', opacity: 0 }}
+                                            transition={{ duration: 1.1, ease: 'easeInOut', delay: 0.5 }}
+                                            style={{
+                                                background:
+                                                    'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%)',
+                                            }}
+                                        />
+
+                                        {/* "Enhancement Complete" badge — flashes once then fades */}
+                                        <motion.div
+                                            className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: [0, 1, 1, 0] }}
+                                            transition={{ duration: 1.9, delay: 0.6, ease: 'easeInOut' }}
+                                        >
+                                            <motion.div
+                                                className="bg-black/60 backdrop-blur-sm border border-emerald-500/60 px-4 py-2 rounded-full flex items-center gap-2"
+                                                initial={{ scale: 0.75, y: 10 }}
+                                                animate={{ scale: [0.75, 1.06, 1, 0.9], y: [10, 0, 0, 5] }}
+                                                transition={{ duration: 1.9, delay: 0.6, ease: 'easeInOut' }}
+                                            >
+                                                <Sparkles className="w-4 h-4 text-emerald-400" />
+                                                <span className="text-xs font-mono text-emerald-300 tracking-widest uppercase">
+                                                    Enhancement Complete
+                                                </span>
+                                            </motion.div>
+                                        </motion.div>
                                     </motion.div>
                                 ) : (
                                     /* Original capture */
@@ -463,7 +539,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                                 )}
                             </AnimatePresence>
 
-                            {/* Watermark indicator */}
+                            {/* Watermark indicator — delayed so it doesn't compete with reveal */}
                             <AnimatePresence>
                                 {previewImage && (
                                     <motion.div
@@ -471,18 +547,19 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                                         className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs font-mono text-gray-400"
                                         initial={{ opacity: 0, y: 6 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.8, duration: 0.3 }}
+                                        transition={{ delay: 1.4, duration: 0.35 }}
                                     >
                                         Preview 360p (Watermarked)
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </div>
-                    </div>
+                    </motion.div>
 
-                    {/* Enhance Button - Only show if not enhanced yet */}
+                    {/* Enhance Button — staggered entrance, springs in with scale */}
+                    <AnimatePresence>
                     {!previewImage && !isEnhancing && (
-                        <button
+                        <motion.button
                             onClick={handleEnhance}
                             disabled={!backendAvailable}
                             className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500
@@ -490,15 +567,22 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                              hover:from-emerald-500 hover:to-emerald-400
                              disabled:from-gray-700 disabled:to-gray-600
                              disabled:cursor-not-allowed
-                             transition-all flex items-center justify-center gap-3
+                             transition-colors flex items-center justify-center gap-3
                              shadow-lg shadow-emerald-900/50"
+                            initial={{ opacity: 0, scale: 0.9, y: 18 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 12 }}
+                            transition={{ delay: 0.35, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                            whileHover={{ scale: backendAvailable ? 1.02 : 1 }}
+                            whileTap={{ scale: backendAvailable ? 0.97 : 1 }}
                         >
                             <Sparkles className="w-5 h-5" />
                             {backendAvailable
                                 ? 'Enhance with Iris-SAM + Real-ESRGAN'
                                 : 'Backend Server Required'}
-                        </button>
+                        </motion.button>
                     )}
+                    </AnimatePresence>
 
                     {/* Pending payment indicator */}
                     {downloadPending && (
@@ -598,6 +682,8 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                     )}
                 </div>
             </div>
+
+            </motion.div>{/* end page entry wrapper */}
 
             {/* Email Collection Modal */}
             {showEmailModal && (

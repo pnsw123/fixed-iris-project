@@ -188,24 +188,29 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
                         draggable={false}
                     />
 
-                    {/* After image (overlay layer) - clipped horizontally */}
+                    {/* After image (overlay layer) - clipped horizontally.
+                        The overlay div narrows to `overlayWidth` and clips; the
+                        inner div stays at full container width so the fill image
+                        is revealed, not squished. (next/image `fill` cannot take
+                        an inline width, so the width lives on this wrapper.) */}
                     <div
                         className="absolute inset-0 overflow-hidden"
                         style={{ width: overlayWidth }}
                     >
-                        <Image
-                            src={isDebug ? "/before.webp" : "/after.webp"}
-                            alt="After"
-                            fill
-                            priority
-                            sizes="(max-width: 768px) 100vw, 800px"
-                            className="object-cover object-center pointer-events-none"
-                            style={{
-                                width: containerWidth ? `${containerWidth}px` : '100%',
-                                maxWidth: 'none'
-                            }}
-                            draggable={false}
-                        />
+                        <div
+                            className="relative h-full"
+                            style={{ width: containerWidth ? `${containerWidth}px` : '100%' }}
+                        >
+                            <Image
+                                src={isDebug ? "/before.webp" : "/after.webp"}
+                                alt="After"
+                                fill
+                                priority
+                                sizes="(max-width: 768px) 100vw, 800px"
+                                className="object-cover object-center pointer-events-none"
+                                draggable={false}
+                            />
+                        </div>
                     </div>
 
                     {/* Vertical divider line */}

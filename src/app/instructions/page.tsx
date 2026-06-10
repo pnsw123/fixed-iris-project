@@ -10,6 +10,7 @@ import ComparisonSlider from '@/components/ComparisonSlider';
 import UnsupportedDeviceScreen from '@/components/UnsupportedDeviceScreen';
 import type { CameraCapabilities } from '@/lib/cameraCheck';
 import SpotlightBackground from '@/components/SpotlightBackground';
+import { qualityAnalyzer } from '@/lib/qualityMetrics';
 
 // Skeleton matching ChalkboardList: 4 rows of [circle] + [title + description]
 function ChalkboardListSkeleton() {
@@ -72,6 +73,19 @@ export default function InstructionsPage() {
     const [gateState, setGateState] = useState<GateState>('checking');
     const [cameraInfo, _setCameraInfo] = useState<CameraCapabilities | null>(null);
     const lightSectionRef = useRef<HTMLDivElement>(null);
+
+    // Warm-up MediaPipe WASM while the user reads the instructions.
+    // By the time they tap Continue the WASM binary and .task model are cached
+    // in the browser, eliminating the 3-8 second cold-start spinner on the
+    // capture screen. qualityAnalyzer.initialize() is idempotent — safe to call
+    // even if MobileCaptureScreen later calls it again.
+    useEffect(() => {
+        qualityAnalyzer.initialize().catch((err) => {
+            // Warm-up failure is non-fatal: capture screen will retry initialize()
+            // on mount and surface any real error there.
+            console.warn('[InstructionsPage] MediaPipe warm-up failed:', err);
+        });
+    }, []);
 
     // TODO: RE-ENABLE CAMERA CHECK - Temporarily disabled for desktop testing
     useEffect(() => {

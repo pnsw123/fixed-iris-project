@@ -132,6 +132,19 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
         updateFromClientX(event.clientX);
     };
 
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+        event.preventDefault();
+        // Cancel animation on keyboard interaction
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+        }
+        animatingRef.current = false;
+        const delta = event.key === 'ArrowRight' || event.key === 'ArrowUp' ? 5 : -5;
+        setPercent(prev => Math.min(100, Math.max(0, prev + delta)));
+    };
+
     const overlayWidth = `${percent}%`;
     const handleLeft = `${percent}%`;
 
@@ -197,6 +210,7 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
                         aria-valuenow={Math.round(percent)}
                         aria-label="Adjust comparison"
                         tabIndex={0}
+                        onKeyDown={handleKeyDown}
                     >
                         ⇆
                     </div>

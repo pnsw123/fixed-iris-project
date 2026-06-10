@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # Server — public base URL (used in download links)
     base_url: str = "https://localhost:3000"
 
+    # Redis — optional; required for production-grade purchase storage
+    # If unset, PurchaseService falls back to in-memory storage (dev only).
+    redis_url: str = ""
+
     class Config:
         env_file = ".env"
         case_sensitive = False

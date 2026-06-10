@@ -17,6 +17,8 @@ from typing import Optional, Dict
 from enum import Enum
 import threading
 
+from config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -89,6 +91,13 @@ class PurchaseService:
         # Thread-safe lock for concurrent access
         self._lock = threading.Lock()
         
+        if not settings.redis_url:
+            logger.warning(
+                "PurchaseService using in-memory storage. "
+                "Server restart will lose all pending purchases. "
+                "Set REDIS_URL for production."
+            )
+
         logger.info("PurchaseService initialized (in-memory storage, thread-safe)")
     
     def create_purchase(

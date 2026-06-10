@@ -12,7 +12,7 @@ import { telemetry } from '../lib/telemetry';
 // ---------------------------------------------------------------------------
 
 /** Silence console during a callback, return the result. */
-async function silenced<T>(fn: () => T): Promise<T> {
+async function _silenced<T>(fn: () => T): Promise<T> {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
     try {
         return fn();

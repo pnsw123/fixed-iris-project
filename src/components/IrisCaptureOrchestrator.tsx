@@ -148,7 +148,7 @@ export default function IrisCaptureOrchestrator({
         if (shouldCaptureRef.current && !isCapturing) {
             shouldCaptureRef.current = false; // Reset immediately to prevent re-trigger
             // Use setTimeout to avoid calling setState synchronously in effect
-            setTimeout(() => performCapture(), 0);
+            setTimeout(() => { void performCapture(); }, 0);
         }
     }, [stableSeconds, isCapturing, performCapture]);
 
@@ -158,6 +158,9 @@ export default function IrisCaptureOrchestrator({
 
         let running = true;
 
+        // Mutable ref allows runLoop and scheduleLoop to mutually reference each other
+        const loopRef = { schedule: () => {} };
+
         const runLoop = async () => {
             if (!running || !videoRef.current || !analysisCanvasRef.current) {
                 return;
@@ -165,7 +168,7 @@ export default function IrisCaptureOrchestrator({
 
             const video = videoRef.current;
             const canvas = analysisCanvasRef.current;
-            
+
             // Set canvas size to match video
             if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
                 canvas.width = video.videoWidth;
@@ -174,7 +177,7 @@ export default function IrisCaptureOrchestrator({
 
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (!ctx) {
-                animationFrameRef.current = requestAnimationFrame(runLoop);
+                loopRef.schedule();
                 return;
             }
 
@@ -185,7 +188,7 @@ export default function IrisCaptureOrchestrator({
                 // Analyze quality
                 const report = await qualityAnalyzer.analyze(video, canvas);
                 if (!running) return;
-                
+
                 setCurrentReport(report);
 
                 const qualityOk = meetsQualityThresholds(report);
@@ -198,9 +201,9 @@ export default function IrisCaptureOrchestrator({
                         stableStartTimeRef.current = now;
                         lastQualityCheckRef.current = true;
                     }
-                    
+
                     // Calculate how long quality has been stable
-                    const stableDuration = stableStartTimeRef.current 
+                    const stableDuration = stableStartTimeRef.current
                         ? Math.floor((now - stableStartTimeRef.current) / 1000)
                         : 0;
                     setStableSeconds(stableDuration);
@@ -215,7 +218,7 @@ export default function IrisCaptureOrchestrator({
                     lastQualityCheckRef.current = false;
                     setStableSeconds(0);
                     shouldCaptureRef.current = false;
-                    
+
                     // CRITICAL: Signal countdown to abort if it's running
                     if (isCapturing) {
                         countdownAbortRef.current = true;
@@ -227,11 +230,13 @@ export default function IrisCaptureOrchestrator({
 
             // Continue loop
             if (running) {
-                animationFrameRef.current = requestAnimationFrame(runLoop);
+                loopRef.schedule();
             }
         };
 
-        animationFrameRef.current = requestAnimationFrame(runLoop);
+        // Assign after runLoop is defined; wraps async fn so requestAnimationFrame gets void fn
+        loopRef.schedule = () => { animationFrameRef.current = requestAnimationFrame(() => { void runLoop(); }); };
+        loopRef.schedule();
 
         return () => {
             running = false;
@@ -266,7 +271,7 @@ export default function IrisCaptureOrchestrator({
             }
         };
 
-        init();
+        void init();
 
         return () => {
             mounted = false;

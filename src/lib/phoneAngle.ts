@@ -41,10 +41,15 @@ export async function initializePhoneAngle(): Promise<boolean> {
     }
 
     // Request permission on iOS 13+
-    if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+    // iOS 13+ adds requestPermission to DeviceOrientationEvent — not in standard TS types
+    type IOSDeviceOrientationEvent = typeof DeviceOrientationEvent & {
+        requestPermission?: () => Promise<string>;
+    };
+    const DOE = DeviceOrientationEvent as IOSDeviceOrientationEvent;
+    if (typeof DOE.requestPermission === 'function') {
         try {
             console.log('[PhoneAngle] Requesting permission (iOS)...');
-            const permission = await (DeviceOrientationEvent as any).requestPermission();
+            const permission = await DOE.requestPermission();
             if (permission !== 'granted') {
                 console.warn('[PhoneAngle] Permission denied');
                 currentState = 'unavailable';

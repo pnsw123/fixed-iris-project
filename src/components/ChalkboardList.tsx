@@ -38,6 +38,8 @@ export default function ChalkboardList({
     const ROW_TOTAL_TIME = CIRCLE_DURATION + UNDERLINE_DELAY + UNDERLINE_DURATION + ICON_DELAY + ICON_DURATION + NEXT_ROW_DELAY;
 
     // Trigger SEQUENTIAL animations
+    // ROW_TOTAL_TIME is derived from local constants — intentionally excluded from deps
+    /* eslint-disable react-hooks/exhaustive-deps */
     useEffect(() => {
         items.forEach((_, index) => {
             // Each row starts after all previous rows complete
@@ -71,6 +73,7 @@ export default function ChalkboardList({
             }, rowStart + CIRCLE_DURATION + UNDERLINE_DELAY + UNDERLINE_DURATION + ICON_DELAY);
         });
     }, [items]);
+    /* eslint-enable react-hooks/exhaustive-deps */
 
     return (
         <div className="space-y-8 pl-4">

@@ -57,12 +57,12 @@ function makeMockStream(track: ReturnType<typeof makeMockTrack>) {
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-let consoleLogSpy: ReturnType<typeof vi.spyOn>;
-let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+let _consoleLogSpy: ReturnType<typeof vi.spyOn>;
+let _consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    _consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    _consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {

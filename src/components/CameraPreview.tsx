@@ -9,7 +9,7 @@ export interface CameraPreviewHandle {
     canvas: HTMLCanvasElement | null;
 }
 
-const CameraPreview = forwardRef<CameraPreviewHandle, {}>((props, ref) => {
+const CameraPreview = forwardRef<CameraPreviewHandle, Record<string, never>>((_props, ref) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [error, setError] = useState<string | null>(null);
@@ -60,7 +60,7 @@ const CameraPreview = forwardRef<CameraPreviewHandle, {}>((props, ref) => {
             }
         };
 
-        startCamera();
+        void startCamera();
 
         return () => {
             if (currentStream) {

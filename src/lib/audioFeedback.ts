@@ -19,7 +19,7 @@ export class AudioFeedback {
 
         try {
             if (!this.ctx) {
-                const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
                 if (AudioContextClass) {
                     this.ctx = new AudioContextClass();
                     // Create master gain for volume control
@@ -106,7 +106,7 @@ export class AudioFeedback {
         requestAnimationFrame(() => this.scheduleClicks());
     }
 
-    private playClick(time: number) {
+    private playClick(_time: number) {
         // DISABLED
     }
 
@@ -144,7 +144,7 @@ export class AudioFeedback {
     stop() {
         this.isActive = false;
         if (this.ctx) {
-            this.ctx.close();
+            void this.ctx.close();
             this.ctx = null;
         }
         if (typeof window !== 'undefined' && window.speechSynthesis) {

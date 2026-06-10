@@ -151,7 +151,8 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
                     onClick={handleClick}
                     aria-label="Comparison slider"
                 >
-                    {/* Before image (base layer) */}
+                    {/* Before image (base layer) — dynamic base64/static, Next Image incompatible here */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src="/before.png"
                         alt="Before"
@@ -164,6 +165,7 @@ export default function ComparisonSlider({ compact = false }: ComparisonSliderPr
                         className="absolute inset-0 overflow-hidden"
                         style={{ width: overlayWidth }}
                     >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={DEBUG_MODE ? "/before.png" : "/after.png"}
                             alt="After"

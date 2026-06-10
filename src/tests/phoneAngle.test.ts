@@ -7,7 +7,7 @@
  * DeviceOrientationEvent is not available in node — we stub it globally
  * and drive latestBeta by simulating orientation events.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Re-implement the pure state-transition logic extracted from phoneAngle.ts

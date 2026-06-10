@@ -93,7 +93,6 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
     // UI states
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
-    const [processingMetadata, setProcessingMetadata] = useState<any>(null);
 
     // Payment flow states
     const [showEmailModal, setShowEmailModal] = useState(false);
@@ -103,28 +102,30 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
     const [downloadPending, setDownloadPending] = useState(false);
     const [emailVerified, setEmailVerified] = useState(false);  // Unlocks download buttons
 
-    // Check backend availability on mount
+    // Check backend availability on mount — intentional empty deps, runs once on mount
+    /* eslint-disable react-hooks/exhaustive-deps */
     useEffect(() => {
         const checkBackend = async () => {
             const available = await backendClient.healthCheck();
             setBackendAvailable(available);
         };
-        checkBackend();
+        void checkBackend();
 
         // Check for pending purchase in localStorage (recovery after page refresh)
         const storedPurchase = localStorage.getItem('eyedentity_purchase');
         if (storedPurchase) {
             try {
-                const { token, email } = JSON.parse(storedPurchase);
+                const { token, email } = JSON.parse(storedPurchase) as { token: string; email?: string };
                 setPurchaseToken(token);
-                setUserEmail(email || '');
+                setUserEmail(email ?? '');
                 // Try to recover download
-                attemptRecoveryDownload(token);
-            } catch (e) {
+                void attemptRecoveryDownload(token);
+            } catch {
                 localStorage.removeItem('eyedentity_purchase');
             }
         }
     }, []);
+    /* eslint-enable react-hooks/exhaustive-deps */
 
     const attemptRecoveryDownload = async (token: string) => {
         try {
@@ -163,7 +164,6 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
             if (result.success && result.preview_image && result.purchase_token) {
                 setPreviewImage(result.preview_image);
                 setPurchaseToken(result.purchase_token);
-                setProcessingMetadata(result.metadata);
                 console.log('[ReviewScreen] ✅ Backend processing complete!');
                 toast.success('Enhancement complete — HD preview ready!');
             } else {
@@ -560,7 +560,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                     <AnimatePresence>
                     {!previewImage && !isEnhancing && (
                         <motion.button
-                            onClick={handleEnhance}
+                            onClick={() => { void handleEnhance(); }}
                             disabled={!backendAvailable}
                             className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500
                              text-white font-medium py-4 px-6
@@ -591,7 +591,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                             <div className="flex-1 min-w-0">
                                 <p className="text-blue-300 text-sm">Waiting for payment confirmation</p>
                                 <button
-                                    onClick={attemptDownload}
+                                    onClick={() => { void attemptDownload(); }}
                                     disabled={isDownloading}
                                     className="text-xs text-blue-400 underline hover:text-blue-300 mt-0.5"
                                 >
@@ -642,7 +642,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                                 <>
                                     {/* Download HD Enhanced */}
                                     <button
-                                        onClick={() => downloadImage('hd')}
+                                        onClick={() => { void downloadImage('hd'); }}
                                         disabled={isDownloading}
                                         className="w-full bg-gradient-to-r from-amber-600 to-amber-500
                                          text-white font-medium py-4 px-6
@@ -661,7 +661,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
 
                                     {/* Download Original */}
                                     <button
-                                        onClick={() => downloadImage('original')}
+                                        onClick={() => { void downloadImage('original'); }}
                                         disabled={isDownloading}
                                         className="w-full border border-gray-600 bg-gray-800/50
                                          text-gray-300 font-medium py-3 px-6
@@ -700,7 +700,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                         </div>
 
                         <p className="text-gray-400 text-sm mb-6">
-                            Enter your email to receive your HD iris image. We'll also send a backup download link.
+                            Enter your email to receive your HD iris image. We&apos;ll also send a backup download link.
                         </p>
 
                         <div className="space-y-4">
@@ -725,7 +725,7 @@ export default function ReviewScreen({ captureData, onRetake }: ReviewScreenProp
                             </div>
 
                             <button
-                                onClick={handleEmailSubmit}
+                                onClick={() => { void handleEmailSubmit(); }}
                                 className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500
                                  text-white font-medium py-3 rounded-lg
                                  hover:from-emerald-500 hover:to-emerald-400

@@ -294,7 +294,7 @@ export class StageManager {
      *   ~2 s at 15 fps and ~1 s at 30 fps — both acceptable.  A wall-clock approach
      *   would require tracking when `raised` first transitioned, adding complexity.
      */
-    private processEyebrowsStage(eyebrows: StageRequirements['eyebrows'], now: number) {
+    private processEyebrowsStage(eyebrows: StageRequirements['eyebrows'], _now: number) {
         // Eyebrow State Machine: not_raised → raised → confirmed
 
         if (this.eyebrowState === 'confirmed') {
@@ -399,7 +399,7 @@ export class StageManager {
         };
     }
 
-    private getProgress(requirements: StageRequirements): number {
+    private getProgress(_requirements: StageRequirements): number {
         const now = Date.now();
 
         switch (this.currentStage) {

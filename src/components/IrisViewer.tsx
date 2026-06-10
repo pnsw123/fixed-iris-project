@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Download, Sparkles } from 'lucide-react';
 
 interface IrisViewerProps {
@@ -118,6 +118,7 @@ export default function IrisViewer({ imageUrl, originalUrl }: IrisViewerProps) {
                     // Comparison Mode: Side by Side
                     <div className="flex h-full gap-1">
                         <div className="flex-1 relative bg-neutral-950 flex items-center justify-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src={originalUrl}
                                 alt="Original Iris"
@@ -129,6 +130,7 @@ export default function IrisViewer({ imageUrl, originalUrl }: IrisViewerProps) {
                             </div>
                         </div>
                         <div className="flex-1 relative bg-neutral-950 flex items-center justify-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src={imageUrl}
                                 alt="AI Enhanced Iris"
@@ -148,6 +150,7 @@ export default function IrisViewer({ imageUrl, originalUrl }: IrisViewerProps) {
                 ) : (
                     // Single Image Mode
                     <div className="w-full h-full flex items-center justify-center bg-neutral-950">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={imageUrl}
                             alt="AI Enhanced Iris"

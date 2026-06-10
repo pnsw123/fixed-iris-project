@@ -408,9 +408,13 @@ export default function MobileCaptureScreen({
 
     const startAnalysisLoop = useCallback(() => {
         console.log('[Capture] Starting analysis loop...');
+
+        // Mutable ref allows loop and loopRef.schedule to mutually reference each other
+        const loopRef = { schedule: () => {} };
+
         const loop = async () => {
             if (!videoRef.current || !analysisCanvasRef.current) {
-                requestRef.current = requestAnimationFrame(loop);
+                loopRef.schedule();
                 return;
             }
 
@@ -420,9 +424,12 @@ export default function MobileCaptureScreen({
                 await processFrame();
             }
 
-            requestRef.current = requestAnimationFrame(loop);
+            loopRef.schedule();
         };
-        requestRef.current = requestAnimationFrame(loop);
+
+        // Wraps async fn so requestAnimationFrame receives a void-returning fn
+        loopRef.schedule = () => { requestRef.current = requestAnimationFrame(() => { void loop(); }); };
+        loopRef.schedule();
     }, [processFrame]);
 
     const stopAnalysisLoop = useCallback(() => {
@@ -639,6 +646,7 @@ export default function MobileCaptureScreen({
         onCaptureComplete(captureData);
 
         console.log('[Capture] Capture complete!');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentReport, stopCamera, stopAnalysisLoop, onCaptureComplete]);
 
     // Trigger capture when countdown reaches -1
@@ -647,9 +655,7 @@ export default function MobileCaptureScreen({
             console.log('[Capture] Countdown finished! Triggering capture...');
             setCountdown(null);
             setIsCapturing(true); // Set flag before capture
-            (async () => {
-                await performCapture();
-            })();
+            void performCapture();
         }
     }, [countdown, performCapture]);
 
@@ -678,7 +684,7 @@ export default function MobileCaptureScreen({
             }
         };
 
-        init();
+        void init();
 
         return () => {
             mounted = false;
@@ -691,7 +697,8 @@ export default function MobileCaptureScreen({
             }
             audioFeedback.stop();
         };
-    }, []); // FIXED: Empty array - only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Intentional: only run once on mount
 
     // --- Render ---
     if (cameraError) {

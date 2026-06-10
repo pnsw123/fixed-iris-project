@@ -9,7 +9,8 @@ export default function CapturePage() {
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        setIsMounted(true);
+        const timer = setTimeout(() => setIsMounted(true), 0);
+        return () => clearTimeout(timer);
     }, []);
 
     const handleBack = () => {

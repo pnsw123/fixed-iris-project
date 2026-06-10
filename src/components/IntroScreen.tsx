@@ -8,17 +8,6 @@ import BubbleFooter from './BubbleFooter';
 import WordListSwap from './WordListSwap';
 import SpotlightBackground from './SpotlightBackground';
 
-// Helper to animate paths
-const animatePaths = (svg: SVGSVGElement, duration: number, delay: number) => {
-    const paths = svg.querySelectorAll('path, line');
-    paths.forEach((path: any) => {
-        const length = path.getTotalLength ? path.getTotalLength() : 100;
-        path.style.strokeDasharray = `${length}`;
-        path.style.strokeDashoffset = `${length}`;
-        path.style.animation = `drawLine ${duration}ms ease-out forwards ${delay}ms`;
-    });
-};
-
 // Replaced ZigzagDoodle with a hand-drawn star with radiating lines
 function StarDoodle({ show, color = '#a78bfa', size = 120 }: { show: boolean, color?: string, size?: number }) {
     const svgRef = useRef<SVGSVGElement>(null);
@@ -91,8 +80,9 @@ function StarDoodle({ show, color = '#a78bfa', size = 120 }: { show: boolean, co
 
         // ANIMATION SEQUENCING
         // 1. Animate Star (1500ms - Slower)
-        // Cast to any because RoughJS types might imply generic SVGElement
-        const starLength = (starNode as any).getTotalLength ? (starNode as any).getTotalLength() : 100;
+        // RoughJS returns SVGGElement; getTotalLength lives on inner path child
+        const starPathEl = starNode.querySelector('path');
+        const starLength = starPathEl?.getTotalLength?.() ?? 100;
         starNode.style.strokeDasharray = `${starLength}`;
         starNode.style.strokeDashoffset = `${starLength}`;
         starNode.style.animation = `drawLine 1500ms ease-out forwards 0ms`;
@@ -101,8 +91,8 @@ function StarDoodle({ show, color = '#a78bfa', size = 120 }: { show: boolean, co
         lineNodes.forEach(node => {
             const pathNode = node.querySelector('path') || node;
             if (pathNode instanceof SVGPathElement || pathNode instanceof SVGLineElement) {
-                // @ts-ignore
-                const len = pathNode.getTotalLength ? pathNode.getTotalLength() : 20;
+                // SVGPathElement has getTotalLength; SVGLineElement does not — fall back to 20
+                const len = pathNode instanceof SVGPathElement ? pathNode.getTotalLength() : 20;
                 pathNode.style.strokeDasharray = `${len}`;
                 pathNode.style.strokeDashoffset = `${len}`;
                 // Delay = 1500ms (star duration)
@@ -142,11 +132,11 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
         return () => clearTimeout(timer);
     }, []);
 
-    const handleStartCamera = () => {
+    const handleGetStarted = () => {
         if (onStart) {
             onStart();
         } else {
-            router.push('/mobile-capture');
+            router.push('/instructions');
         }
     };
 
@@ -230,7 +220,7 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
 
                     {/* CTA */}
                     <button
-                        onClick={() => router.push('/instructions')}
+                        onClick={handleGetStarted}
                         aria-describedby="intro-tagline"
                         className="bg-white text-black font-medium text-base py-4 px-12 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                     >

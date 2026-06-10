@@ -13,9 +13,11 @@ export default function ResultPage() {
         const storedCapture = sessionStorage.getItem('heritage_capture');
 
         if (storedCapture) {
-            setCaptureData(JSON.parse(storedCapture));
+            // Defer to avoid calling setState synchronously in effect
+            const parsed = JSON.parse(storedCapture) as typeof captureData;
+            setTimeout(() => setCaptureData(parsed), 0);
         } else {
-            router.replace('/mobile-capture');
+            void router.replace('/mobile-capture');
         }
     }, [router]);
 

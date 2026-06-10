@@ -212,7 +212,6 @@ export function RoughGetCloser({
         const hcx = cx;
 
         // Left arrow →
-        const arrowLen = hs * 0.3;
         svg.appendChild(rc.line(hcx - hs * 0.55, hcy, hcx - hs * 0.28, hcy, { stroke: color, strokeWidth: 1.5, roughness: 0.5 }));
         svg.appendChild(rc.line(hcx - hs * 0.38, hcy - hs * 0.1, hcx - hs * 0.28, hcy, { stroke: color, strokeWidth: 1.5, roughness: 0.5 }));
         svg.appendChild(rc.line(hcx - hs * 0.38, hcy + hs * 0.1, hcx - hs * 0.28, hcy, { stroke: color, strokeWidth: 1.5, roughness: 0.5 }));

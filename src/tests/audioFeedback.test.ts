@@ -153,13 +153,15 @@ describe('AudioFeedback.speak()', () => {
 describe('AudioFeedback.speak() — SSR/no-window', () => {
     it('does not throw when speechSynthesis is undefined', () => {
         // Temporarily remove speechSynthesis
-        const originalSpeechSynthesis = (globalThis.window as any).speechSynthesis;
-        (globalThis.window as any).speechSynthesis = undefined;
+        type WinExt = Window & { speechSynthesis: SpeechSynthesis | undefined };
+        const w = globalThis.window as WinExt;
+        const originalSpeechSynthesis = w.speechSynthesis;
+        w.speechSynthesis = undefined;
 
         const af = makeInstance();
         expect(() => af.speak('test')).not.toThrow();
 
-        (globalThis.window as any).speechSynthesis = originalSpeechSynthesis;
+        w.speechSynthesis = originalSpeechSynthesis;
     });
 });
 

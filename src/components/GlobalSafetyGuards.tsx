@@ -6,13 +6,13 @@ export default function GlobalSafetyGuards() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const w = window as typeof window & Record<string, any>;
+    const w = window as typeof window & Record<string, unknown>;
 
     // Stub Firefox-specific globals some extensions expect
     if (typeof w.__firefox__ !== 'object' || w.__firefox__ === null) {
       w.__firefox__ = {};
     }
-    const firefox = w.__firefox__;
+    const firefox = w.__firefox__ as Record<string, unknown>;
     const ensureNoop = (key: string) => {
       if (typeof firefox[key] !== 'function') {
         firefox[key] = () => {};
@@ -29,7 +29,7 @@ export default function GlobalSafetyGuards() {
     if (typeof w.ethereum === 'undefined') {
       w.ethereum = { selectedAddress: undefined };
     } else if (w.ethereum && typeof w.ethereum === 'object' && !('selectedAddress' in w.ethereum)) {
-      w.ethereum.selectedAddress = undefined;
+      (w.ethereum as Record<string, unknown>).selectedAddress = undefined;
     }
   }, []);
 

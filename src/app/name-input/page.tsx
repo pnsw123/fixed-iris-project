@@ -92,7 +92,7 @@ export default function NameInputPage() {
                     {/* CTA */}
                     <div className="pt-4">
                         <button
-                            onClick={handleStartCapture}
+                            onClick={() => { void handleStartCapture(); }}
                             disabled={!canContinue || isNavigating}
                             className={`w-full font-medium text-base py-4 px-6 transition-colors flex items-center justify-center gap-2 ${canContinue && !isNavigating
                                 ? 'bg-white text-black hover:bg-gray-100'

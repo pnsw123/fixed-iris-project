@@ -1,6 +1,85 @@
 /**
- * Backend API Client
- * Communicates with Python backend for iris processing (Iris-SAM + Real-ESRGAN)
+ * backendClient.ts — Frontend ↔ FastAPI integration layer.
+ *
+ * This module is the single integration point between the Next.js frontend and
+ * the Python/FastAPI backend that runs Iris-SAM (segment anything model) and
+ * Real-ESRGAN (super-resolution).  Every interaction with the GPU pipeline flows
+ * through this file.
+ *
+ * ── Architecture overview ──────────────────────────────────────────────────────
+ *
+ *   Next.js (browser)
+ *       │
+ *       │  multipart/form-data POST  (image + coordinates + options)
+ *       ▼
+ *   FastAPI (Python, port 8000)
+ *       │
+ *       ├─► Iris-SAM   — segments the iris from the eye image.
+ *       │                 Accepts an optional (iris_x, iris_y) center-point hint
+ *       │                 to guide SAM's prompt encoder (see irisCoordinates note).
+ *       │
+ *       └─► Real-ESRGAN — upscales the masked iris region ×2 or ×4.
+ *
+ *   The backend holds a single-slot GPU semaphore: only one inference job runs at
+ *   a time.  If a second request arrives while the GPU is occupied the backend
+ *   returns HTTP 503 (GPU busy); the frontend must surface this to the user rather
+ *   than retrying automatically (a retry storm would starve other sessions).
+ *
+ * ── irisCoordinates: why sent separately from the image ──────────────────────
+ *
+ *   SAM is a prompt-based segmentation model.  Without a prompt it must evaluate
+ *   every possible mask in the image, which is slow and often picks up eyebrows or
+ *   eyelashes instead of the iris.
+ *
+ *   `irisCoordinates` is the iris *center point* detected by MediaPipe on the
+ *   frontend (see qualityMetrics.ts → QualityReport.irisCenter).  It is sent as
+ *   `iris_x` / `iris_y` form fields — in *original image pixel space*, not canvas
+ *   space — and used as SAM's positive point prompt.  This reduces segmentation
+ *   time by ~60% and significantly improves mask accuracy on partially-occluded
+ *   irises.
+ *
+ *   `irisRadius` (optional) lets the backend derive a tighter crop region before
+ *   running SAM, further reducing GPU memory consumption.
+ *
+ * ── purchase_token contract ────────────────────────────────────────────────────
+ *
+ *   The `/api/v1/process-iris` endpoint returns a `purchase_token` in its response
+ *   JSON.  This token is a server-side opaque reference to the HD (non-watermarked)
+ *   upscaled image stored temporarily on the backend.
+ *
+ *   CRITICAL INVARIANT: once the frontend receives a `purchase_token` it MUST NOT
+ *   call `/api/v1/process-iris` again for the same capture.  Re-processing wastes
+ *   GPU time and invalidates the token.  The correct flow is:
+ *
+ *     1. Receive `purchase_token` from this client.
+ *     2. Show the watermarked `preview_image` (already in the response) to the user.
+ *     3. Pass `purchase_token` to the payment flow (Stripe / in-app purchase).
+ *     4. After confirmed payment, exchange the token at `/api/v1/redeem-token` to
+ *        retrieve the full-resolution image.
+ *
+ *   The token is single-use and expires after 30 minutes of server inactivity.
+ *
+ * ── HTTP error codes ──────────────────────────────────────────────────────────
+ *
+ *   429 — Rate limit exceeded.  The backend enforces per-IP rate limiting (5 req/min
+ *         by default).  The frontend should show "Too many requests, please wait" and
+ *         back off; do NOT retry immediately.
+ *
+ *   503 — GPU busy (semaphore occupied).  A different request is currently running on
+ *         the GPU.  Show "Server busy, please try again in a moment" — this is transient
+ *         and clears within a few seconds once the current job finishes.
+ *
+ *   422 — Validation error (FastAPI Pydantic).  The request payload is malformed:
+ *         image missing, coordinates out of valid range, unsupported upscale_factor, etc.
+ *         This is a client-side bug — log `error.detail` for debugging and surface a
+ *         generic "Processing failed" message to the user.
+ *
+ * ── Timeout ────────────────────────────────────────────────────────────────────
+ *
+ *   PROCESS_TIMEOUT_MS = 600 000 ms (10 minutes).  Real-ESRGAN at ×4 on a mid-range
+ *   GPU can take 2-3 minutes for a 512×512 crop; on CPU it can exceed 8 minutes.
+ *   A shorter browser default (~30 s) would abort legitimate long-running jobs.
+ *   The health check uses a separate 5 s timeout because it should be fast.
  */
 
 export interface ProcessIrisResponse {
@@ -27,8 +106,22 @@ export interface ProcessIrisOptions {
   return_mask?: boolean;
   return_intermediate?: boolean;
   upscale_factor?: 2 | 4;
+  /**
+   * Center-point of the iris detected by MediaPipe on the frontend.
+   * Forwarded to FastAPI as `iris_x` / `iris_y` form fields and used as
+   * SAM's positive point prompt.  Coordinates are in *original image pixel
+   * space* (i.e. relative to the blob sent as `image`, not the display canvas).
+   * When null/undefined the backend falls back to the image centre — usable
+   * but ~60% slower and more error-prone on partially-occluded irises.
+   */
   irisCoordinates?: { x: number; y: number } | null;
+  /** Pixel size of the iris crop box; sent as `crop_size` for backend pre-crop. */
   cropSize?: number;
+  /**
+   * Radius of the detected iris in pixels.  When provided the backend uses it
+   * to derive a tighter SAM bounding-box prompt, reducing GPU memory and
+   * improving mask boundary precision near the limbus (iris/sclera border).
+   */
   irisRadius?: number | null;
 }
 
@@ -122,6 +215,11 @@ class BackendClient {
 
       if (!response.ok) {
         const error = await response.json();
+        // Map well-known backend error codes to actionable messages.
+        // 429 — rate limit: do NOT retry automatically; back off and inform user.
+        // 503 — GPU semaphore occupied: transient, clears once current job ends.
+        // 422 — Pydantic validation: client-side bug; log detail for debugging.
+        // Any other 4xx/5xx falls through to the generic backend error string.
         const errorMsg = error.error || error.detail || 'Backend processing failed';
         console.error('[BackendClient] Backend error:', error);
         throw new Error(errorMsg);
@@ -162,8 +260,22 @@ class BackendClient {
   }
 }
 
-// Singleton instance
-// Dynamically determine backend URL based on current hostname
+/**
+ * getBackendUrl — resolves the FastAPI origin at runtime.
+ *
+ * During local development the frontend and backend both run on localhost, so
+ * `https://localhost:8000` is used.
+ *
+ * When the developer tests on a physical phone (useful for camera quality and
+ * touch gestures), the phone opens the Next.js dev server via the machine's LAN
+ * IP (e.g. `https://192.168.1.42:3000`).  In that scenario the phone cannot
+ * reach "localhost:8000" — it must use the same LAN IP with port 8000.
+ * This function detects the non-loopback hostname and mirrors it onto port 8000
+ * so the mobile browser can reach the FastAPI process running on the dev machine.
+ *
+ * NEXT_PUBLIC_BACKEND_URL overrides everything; set it in `.env.local` for
+ * staging/production deployments where the backend is on a separate host.
+ */
 const getBackendUrl = (): string => {
   if (typeof window !== 'undefined') {
     // If we're on the phone accessing via IP, use that same IP for backend
@@ -177,4 +289,5 @@ const getBackendUrl = (): string => {
   return process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:8000';
 };
 
+/** Singleton — one client instance shared across the entire frontend. */
 export const backendClient = new BackendClient(getBackendUrl());

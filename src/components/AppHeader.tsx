@@ -10,6 +10,17 @@ interface AppHeaderProps {
     title?: string;
     /** Show back button to the left of the logo */
     showBack?: boolean;
+    /**
+     * Custom back handler. When provided alongside `showBack`, this is called
+     * instead of `router.back()`. Use when the component manages its own
+     * navigation (e.g. MobileCaptureScreen passes its `onBack` prop here).
+     */
+    onBack?: () => void;
+    /**
+     * Overlay mode — renders icon and text in white rather than gray-400.
+     * Use when AppHeader sits over a dark video/image layer (e.g. camera capture).
+     */
+    overlay?: boolean;
     /** Optional right-side slot (e.g. backend status indicator) */
     rightSlot?: React.ReactNode;
 }
@@ -43,9 +54,11 @@ function IrisFallback() {
  * Shared header used across all app screens.
  * Renders DotLottie brand mark; shows static iris SVG until Lottie loads.
  */
-export default function AppHeader({ title = 'IRIS CAPTURE', showBack = false, rightSlot }: AppHeaderProps) {
+export default function AppHeader({ title = 'IRIS CAPTURE', showBack = false, onBack, overlay = false, rightSlot }: AppHeaderProps) {
     const router = useRouter();
     const [lottieLoaded, setLottieLoaded] = useState(false);
+
+    const handleBack = onBack ?? (() => router.back());
 
     return (
         <div className="px-6 py-6 relative z-10">
@@ -53,11 +66,15 @@ export default function AppHeader({ title = 'IRIS CAPTURE', showBack = false, ri
                 <div className="flex items-center gap-2">
                     {showBack && (
                         <button
-                            onClick={() => router.back()}
-                            className="p-2 -ml-2 hover:bg-gray-900 rounded-full transition-colors mr-1"
+                            onClick={handleBack}
+                            className={`p-2 -ml-2 rounded-full transition-colors mr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+                                overlay
+                                    ? 'hover:bg-white/10 focus-visible:ring-white focus-visible:ring-offset-black/60'
+                                    : 'hover:bg-gray-900 focus-visible:ring-white focus-visible:ring-offset-black'
+                            }`}
                             aria-label="Go back"
                         >
-                            <ArrowLeft className="w-5 h-5 text-gray-400" />
+                            <ArrowLeft className={`w-5 h-5 ${overlay ? 'text-white' : 'text-gray-400'}`} aria-hidden="true" />
                         </button>
                     )}
                     {/* Logo container — fixed 32×32 so layout never shifts */}
@@ -84,7 +101,7 @@ export default function AppHeader({ title = 'IRIS CAPTURE', showBack = false, ri
                             />
                         </span>
                     </div>
-                    <span className="text-sm font-mono text-gray-400 tracking-wider">{title}</span>
+                    <span className={`text-sm font-mono tracking-wider ${overlay ? 'text-white/80' : 'text-gray-400'}`}>{title}</span>
                 </div>
                 {rightSlot && (
                     <div className="flex items-center gap-2">

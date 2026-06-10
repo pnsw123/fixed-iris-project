@@ -51,7 +51,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import AppHeader from '@/components/AppHeader';
 import { qualityAnalyzer, QualityReport } from '@/lib/qualityMetrics';
 import { initializePhoneAngle, getAngleState, stopPhoneAngle } from '@/lib/phoneAngle';
 import { audioFeedback } from '@/lib/audioFeedback';
@@ -726,24 +727,21 @@ export default function MobileCaptureScreen({
 
             {/* UI Overlay */}
             <div className="absolute inset-0 z-10 flex flex-col pointer-events-none">
-                {/* Header with Back Button */}
+                {/* Header with Back Button — uses shared AppHeader for brand consistency */}
                 <div className="bg-gradient-to-b from-black/60 to-transparent backdrop-blur-sm pointer-events-auto">
-                    <div className="px-6 py-4 flex items-center justify-between">
-                        <button
-                            onClick={onBack}
-                            aria-label="Go back"
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 focus-visible:ring-offset-black/60"
-                        >
-                            <ArrowLeft className="w-5 h-5 text-white" aria-hidden="true" />
-                        </button>
-
-                        {isInitializing && (
-                            <div className="flex items-center gap-2">
-                                <div className="animate-spin w-4 h-4 border-2 border-white/40 border-t-white rounded-full" />
-                                <span className="text-sm font-light text-white/80">Loading...</span>
-                            </div>
-                        )}
-                    </div>
+                    <AppHeader
+                        showBack
+                        onBack={onBack}
+                        overlay
+                        rightSlot={
+                            isInitializing ? (
+                                <div className="flex items-center gap-2">
+                                    <div className="animate-spin w-4 h-4 border-2 border-white/40 border-t-white rounded-full" />
+                                    <span className="text-sm font-light text-white/80">Loading...</span>
+                                </div>
+                            ) : undefined
+                        }
+                    />
                 </div>
 
                 {/* Spacer */}

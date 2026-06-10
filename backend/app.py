@@ -29,6 +29,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from starlette.middleware.trustedhost import TrustedHostMiddleware  # noqa: F401 (unused but kept for discoverability)
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from rate_limit import limiter
 import numpy as np
 from PIL import Image
@@ -75,6 +77,17 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+# Trusted-proxy middleware (issue #126).
+# Only enabled when TRUSTED_PROXY=true (i.e. behind Render's load balancer or
+# another known single-hop proxy).  It rewrites request.client.host to the
+# real client IP from X-Forwarded-For so that get_client_host() in
+# rate_limit.py still sees the per-user IP rather than the LB's IP.
+# Without this flag the middleware is NOT added — X-Forwarded-For is ignored
+# entirely, making header-based IP spoofing impossible.
+if settings.trusted_proxy:
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+    logger.info("[Security] ProxyHeadersMiddleware enabled (TRUSTED_PROXY=true)")
 
 # Global service instances (loaded on startup)
 iris_sam_service: Optional[IrisSAMService] = None

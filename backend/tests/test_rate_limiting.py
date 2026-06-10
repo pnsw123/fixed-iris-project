@@ -7,27 +7,47 @@ Validates that SlowAPI limits are wired correctly:
 
 These are unit-level tests that monkey-patch the pipeline and purchase
 service so no real GPU/model code runs.
+
+Security note (issue #126):
+    Rate limiting uses ``request.client.host`` (TCP peer), NOT
+    ``X-Forwarded-For``.  Tests control the peer address via
+    Starlette TestClient's ``client=(host, port)`` constructor arg,
+    not via HTTP headers.  This mirrors the real security model:
+    headers are ignored; only the real TCP connection matters.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
+
 
 # ---------------------------------------------------------------------------
 # App import — must happen after monkey-patching heavy services
 # ---------------------------------------------------------------------------
 
-@pytest.fixture()
-def client():
-    """Return a TestClient with models monkey-patched to avoid loading GPU code."""
+def _make_app():
+    """Import fastapi app with GPU services stubbed out."""
     with (
         patch("app.IrisSAMService"),
         patch("app.RealESRGANService"),
         patch("app.IrisPipelineService"),
     ):
-        from app import app as fastapi_app
-        with TestClient(fastapi_app, raise_server_exceptions=False) as c:
-            yield c
+        from app import app as fastapi_app  # noqa: PLC0415
+        return fastapi_app
+
+
+@pytest.fixture()
+def client():
+    """TestClient with default peer 1.2.3.4."""
+    app = _make_app()
+    with TestClient(app, raise_server_exceptions=False, client=("1.2.3.4", 12345)) as c:
+        yield c
+
+
+def _client_for_ip(ip: str) -> TestClient:
+    """Return a TestClient whose TCP peer is set to ``ip``."""
+    app = _make_app()
+    return TestClient(app, raise_server_exceptions=False, client=(ip, 12345))
 
 
 # ---------------------------------------------------------------------------
@@ -54,60 +74,88 @@ class TestProcessIrisRateLimit:
         """First request must include X-RateLimit-* headers from SlowAPI."""
         fake_png = _make_fake_image_bytes()
 
-        # Pipeline service doesn't exist yet (not started), so we'll get 500
-        # but the rate-limit headers should still be injected.
+        # Pipeline service is not started (models not loaded), so we'll get 500,
+        # but SlowAPI injects rate-limit headers even on error responses.
         resp = client.post(
             "/api/v1/process-iris",
             files={"image": ("eye.png", fake_png, "image/png")},
             data={"return_mask": "false"},
-            headers={"X-Forwarded-For": "1.2.3.4"},
+            # No X-Forwarded-For — rate key comes from TCP peer set in fixture.
         )
-        # 429 = rate limited, 500 = models not loaded — both are fine here
+        # 429 = rate limited, 500 = models not loaded — both are acceptable here
         assert resp.status_code in (200, 422, 429, 500)
         # SlowAPI injects the header even on error responses
         assert "x-ratelimit-limit" in resp.headers or resp.status_code == 429
 
-    def test_sixth_request_returns_429(self, client: TestClient):
-        """6th request from same IP within a minute must be rejected 429."""
+    def test_sixth_request_returns_429(self):
+        """6th request from same TCP peer within a minute must be rejected 429."""
         fake_png = _make_fake_image_bytes()
 
-        responses = []
-        for _ in range(6):
-            r = client.post(
-                "/api/v1/process-iris",
-                files={"image": ("eye.png", fake_png, "image/png")},
-                data={"return_mask": "false"},
-                headers={"X-Forwarded-For": "10.0.0.1"},
-            )
-            responses.append(r.status_code)
+        with _client_for_ip("10.0.0.1") as c:
+            responses = []
+            for _ in range(6):
+                r = c.post(
+                    "/api/v1/process-iris",
+                    files={"image": ("eye.png", fake_png, "image/png")},
+                    data={"return_mask": "false"},
+                )
+                responses.append(r.status_code)
 
         # At least one of the 6 requests must have been rate-limited
         assert 429 in responses, (
             f"Expected 429 after 5 requests but got statuses: {responses}"
         )
 
-    def test_different_ips_not_shared(self, client: TestClient):
-        """Rate limit is per-IP — different IPs must not share quota."""
+    def test_different_ips_not_shared(self):
+        """Rate limit is per-IP — different TCP peers must not share quota."""
         fake_png = _make_fake_image_bytes()
 
         # Exhaust IP A's quota
-        for _ in range(6):
-            client.post(
+        with _client_for_ip("192.168.1.1") as c_a:
+            for _ in range(6):
+                c_a.post(
+                    "/api/v1/process-iris",
+                    files={"image": ("eye.png", fake_png, "image/png")},
+                    data={},
+                )
+
+        # IP B's first request must not be 429
+        with _client_for_ip("192.168.1.2") as c_b:
+            r = c_b.post(
                 "/api/v1/process-iris",
                 files={"image": ("eye.png", fake_png, "image/png")},
                 data={},
-                headers={"X-Forwarded-For": "192.168.1.1"},
             )
-
-        # IP B's first request must not be 429
-        r = client.post(
-            "/api/v1/process-iris",
-            files={"image": ("eye.png", fake_png, "image/png")},
-            data={},
-            headers={"X-Forwarded-For": "192.168.1.2"},
-        )
         assert r.status_code != 429, (
             "Rate limit of IP A must not bleed into IP B"
+        )
+
+    def test_x_forwarded_for_header_ignored(self):
+        """Spoofed X-Forwarded-For must NOT affect the rate-limit key.
+
+        All 6 requests come from the same TCP peer and must be rate-limited
+        regardless of what X-Forwarded-For claims.
+        """
+        fake_png = _make_fake_image_bytes()
+
+        with _client_for_ip("10.0.0.99") as c:
+            responses = []
+            for i in range(6):
+                # Rotate the X-Forwarded-For header on each request —
+                # if the old code were in place, each would be a "new" IP;
+                # with the fix, the TCP peer (10.0.0.99) is always the key.
+                r = c.post(
+                    "/api/v1/process-iris",
+                    files={"image": ("eye.png", fake_png, "image/png")},
+                    data={"return_mask": "false"},
+                    headers={"X-Forwarded-For": f"5.5.5.{i}"},
+                )
+                responses.append(r.status_code)
+
+        # Rate limit must still fire despite rotating headers
+        assert 429 in responses, (
+            "X-Forwarded-For rotation must NOT bypass rate limiting. "
+            f"Got statuses: {responses}"
         )
 
 
@@ -118,32 +166,32 @@ class TestProcessIrisRateLimit:
 class TestDownloadHdRateLimit:
     """Rate-limit guard on the 30-second polling download endpoint."""
 
-    def test_eleventh_request_returns_429(self, client: TestClient):
-        """11th download request from same IP within a minute must be 429."""
-        responses = []
-        for _ in range(11):
-            r = client.post(
-                "/api/download-hd",
-                json={"token": "fake-token-does-not-exist"},
-                headers={"X-Forwarded-For": "10.0.0.2"},
-            )
-            responses.append(r.status_code)
+    def test_eleventh_request_returns_429(self):
+        """11th download request from same TCP peer within a minute must be 429."""
+        with _client_for_ip("10.0.0.2") as c:
+            responses = []
+            for _ in range(11):
+                r = c.post(
+                    "/api/download-hd",
+                    json={"token": "fake-token-does-not-exist"},
+                )
+                responses.append(r.status_code)
 
         # Tokens don't exist → 404, but 11th must be 429
         assert 429 in responses, (
             f"Expected 429 after 10 requests but got statuses: {responses}"
         )
 
-    def test_rate_limit_does_not_fire_within_quota(self, client: TestClient):
+    def test_rate_limit_does_not_fire_within_quota(self):
         """First 10 requests must not return 429."""
-        responses = []
-        for _ in range(10):
-            r = client.post(
-                "/api/download-hd",
-                json={"token": "no-such-token"},
-                headers={"X-Forwarded-For": "10.0.0.3"},
-            )
-            responses.append(r.status_code)
+        with _client_for_ip("10.0.0.3") as c:
+            responses = []
+            for _ in range(10):
+                r = c.post(
+                    "/api/download-hd",
+                    json={"token": "no-such-token"},
+                )
+                responses.append(r.status_code)
 
         assert 429 not in responses, (
             f"Should not rate-limit within quota. Got: {responses}"
